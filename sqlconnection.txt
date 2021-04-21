@@ -1,1 +1,0 @@
-server=localhost;user=root;database=world;port=3306;password=******
