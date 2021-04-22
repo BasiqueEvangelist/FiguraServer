@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MySqlConnector;
-
 namespace FiguraServer.Controllers
 {
     [ApiController]
@@ -18,25 +17,37 @@ namespace FiguraServer.Controllers
             Db = db;
         }
 
-        [HttpGet("get/{id}")]
+
+        //Gets an avatar from the database.
+        [HttpGet("get")]
         public async Task<Object> Get(string id)
         {
             await Db.Connection.OpenAsync();
 
-            string sqlRequest = "SELECT Name, HeadOfState FROM Country WHERE Continent='Oceania'";
+            string sqlRequest = "SELECT * FROM figura_data.avatar_data WHERE uuid=@uuid";
             MySqlCommand cmd = new MySqlCommand(sqlRequest, Db.Connection);
+            cmd.Parameters.AddWithValue("@uuid", id);
             MySqlDataReader rdr = await cmd.ExecuteReaderAsync();
 
             List<string> retObject = new List<string>();
 
             while (rdr.Read())
             {
-                retObject.Add(rdr[0] + " --- " + rdr[1]);
+                string creatorID = (string)rdr[1];
+                byte[] nbt = (byte[])rdr[2];
+                byte[] metaData = (byte[])rdr[3];
             }
 
             await rdr.CloseAsync();
 
             return Ok(retObject);
+        }
+
+        //Uploads an avatar to the database.
+        [HttpPut("put")]
+        public async Task<Object> Put(string JWT)
+        {
+            return Ok();
         }
     }
 }
