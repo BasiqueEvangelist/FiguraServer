@@ -1,19 +1,10 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.HttpsPolicy;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Lib.AspNetCore.ServerSentEvents;
-using FiguraServer.SSE.Services;
-using Microsoft.AspNetCore.ResponseCompression;
 
 namespace FiguraServer
 {
@@ -41,26 +32,6 @@ namespace FiguraServer
             services.AddTransient<AppDB>(_ => new AppDB(connection));
             #endregion
 
-            #region SSE middleware
-            // Register default ServerSentEventsService.
-            services.AddServerSentEvents();
-
-            // Registers custom ServerSentEventsService which will be used by second middleware, otherwise they would end up sharing connected users.
-            services.AddServerSentEvents<INotificationsServerSentEventsService, NotificationsServerSentEventsService>(options =>
-            {
-                options.ReconnectInterval = 5000;
-            });
-
-            services.AddSingleton<IHostedService, HeartbeatService>();
-            services.AddNotificationsService(Configuration);
-
-            services.AddResponseCompression(options =>
-            {
-                options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[] { "text/event-stream" });
-            });
-            services.AddControllersWithViews();
-            #endregion
-
             services.AddControllers();
             services.AddSwaggerGen(c =>
             {
@@ -84,21 +55,11 @@ namespace FiguraServer
 
             app.UseAuthorization();
 
-            app.UseResponseCompression();
-            app.UseStaticFiles();
+            app.UseWebSockets();
 
             app.UseEndpoints(endpoints =>
             {
-                // Set up first Server-Sent Events endpoint.
-                endpoints.MapServerSentEvents("/see-heartbeat");
-
-                // Set up second (separated) Server-Sent Events endpoint.
-                endpoints.MapServerSentEvents<NotificationsServerSentEventsService>("/sse-notifications");
-
-                endpoints.MapControllerRoute("default", "{controller=Notifications}/{action=sse-notifications-receiver}");
-
-                //endpoints.MapControllers();
-
+                endpoints.MapControllers();
             });
         }
     }

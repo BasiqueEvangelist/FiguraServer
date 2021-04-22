@@ -1,3 +1,4 @@
+using FiguraServer.FiguraServer.Auth;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
@@ -11,16 +12,33 @@ namespace FiguraServer
 {
     public class Program
     {
-        public static void Main(string[] args)
-        {
-            CreateHostBuilder(args).Build().Run();
-        }
 
-        public static IHostBuilder CreateHostBuilder(string[] args) =>
-            Host.CreateDefaultBuilder(args)
-                .ConfigureWebHostDefaults(webBuilder =>
+        public static void Main(string[] args) => MainAsync(args).GetAwaiter().GetResult();
+
+        public static async Task MainAsync(string[] args)
+        {
+            try
+            {
+                Task webAppTask = new Task(() =>
                 {
-                    webBuilder.UseStartup<Startup>();
+                    Host.CreateDefaultBuilder(args)
+                        .ConfigureWebHostDefaults(webBuilder =>
+                        {
+                            webBuilder.UseStartup<Startup>();
+                        }).Build().Run();
                 });
+                webAppTask.Start();
+
+                Task minecraftServerTask = FiguraAuthServer.Start();
+                minecraftServerTask.Start();
+
+                await webAppTask;
+                await minecraftServerTask;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
+        }
     }
 }
