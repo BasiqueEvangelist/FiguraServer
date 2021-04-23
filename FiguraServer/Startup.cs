@@ -1,3 +1,4 @@
+using FiguraServer.FiguraServer.WebSockets;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -5,6 +6,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi.Models;
 using System;
+using System.Net.WebSockets;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace FiguraServer
 {
@@ -20,7 +24,6 @@ namespace FiguraServer
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-
             #region SQL middleware
             if (!System.IO.File.Exists("sqlconnection.txt"))
             {
@@ -60,6 +63,27 @@ namespace FiguraServer
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
+            });
+
+            app.Use(async (context, next) =>
+            {
+                if (context.Request.Path == "/connect" && context.WebSockets.IsWebSocketRequest)
+                {
+                    try
+                    {
+                        using (WebSocket webSocket = await context.WebSockets.AcceptWebSocketAsync())
+                        {
+                            await new WebSocketConnection(webSocket).Run();
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        if (e is System.Net.WebSockets.WebSocketException)
+                            return;
+
+                        Console.Out.WriteLine(e);
+                    }
+                }
             });
         }
     }

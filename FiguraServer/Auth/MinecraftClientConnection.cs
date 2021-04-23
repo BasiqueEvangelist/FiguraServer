@@ -333,11 +333,11 @@ namespace FiguraServer.FiguraServer.Auth
             connection.enableEncryption = true;
 
             //Respond with JWT in kick message.
-            connection.WriteString(GetKickMessage("0"));
+            connection.WriteString(GetKickMessage(AuthenticationManager.GenerateToken(connection.connectingUsername)));
             connection.Flush(0);
         }
 
-        //Special handler just for the handshake. Very special.
+        //Special packet just for the handshake. Very special.
         //❄❄❄❄❄❄❄❄❄
         public class HandshakePacket
         {
@@ -390,21 +390,21 @@ namespace FiguraServer.FiguraServer.Auth
         public static string GetKickMessage(string jwt)
         {
             JObject disconnectResponse = new JObject();
-            disconnectResponse["text"] = "This is the Figura Auth Server!\n";
-            disconnectResponse["color"] = "cyan";
+            disconnectResponse["text"] = "This is the Figura Auth Server V2.0!\n";
+            disconnectResponse["color"] = "aqua";
 
             JObject clarification = new JObject();
-            clarification["text"] = "Here is your auth code.\n\n\n";
-            clarification["color"] = "white";
+            clarification["text"] = "Here is your auth token.\n\n\n";
+            clarification["color"] = "aqua";
 
             JObject code = new JObject();
             code["text"] = $"{jwt}";
-            code["color"] = "white";
+            code["color"] = "aqua";
             code["obfuscated"] = true;
 
             JObject funny = new JObject();
             funny["text"] = "(Just kidding! :D)";
-            funny["color"] = "cyan";
+            funny["color"] = "aqua";
 
             JArray extra = new JArray(clarification, code, funny);
 
