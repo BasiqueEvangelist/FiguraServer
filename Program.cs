@@ -1,4 +1,4 @@
-using FiguraServer.FiguraServer.Auth;
+using FiguraServer.Server.Auth;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
@@ -12,11 +12,17 @@ namespace FiguraServer
 {
     public class Program
     {
+        public static string sqlConnectionString;
 
         public static void Main(string[] args) => MainAsync(args).GetAwaiter().GetResult();
 
         public static async Task MainAsync(string[] args)
         {
+            if (System.IO.File.Exists("sqlconnection.txt"))
+            {
+                sqlConnectionString = System.IO.File.ReadAllText("sqlconnection.txt");
+            }
+
             try
             {
                 Task webAppTask = new Task(() =>
@@ -37,7 +43,7 @@ namespace FiguraServer
             }
             catch (Exception e)
             {
-                Console.WriteLine(e);
+                //Console.WriteLine(e);
             }
         }
     }

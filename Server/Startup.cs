@@ -1,4 +1,4 @@
-using FiguraServer.FiguraServer.WebSockets;
+using FiguraServer.Server.WebSockets;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -31,8 +31,6 @@ namespace FiguraServer
             }
 
             string connection = System.IO.File.ReadAllText("sqlconnection.txt");
-
-            services.AddTransient<AppDB>(_ => new AppDB(connection));
             #endregion
 
             services.AddControllers();
@@ -81,7 +79,7 @@ namespace FiguraServer
                         if (e is System.Net.WebSockets.WebSocketException)
                             return;
 
-                        Console.Out.WriteLine(e);
+                        //Console.Out.WriteLine(e);
                     }
                 }
             });

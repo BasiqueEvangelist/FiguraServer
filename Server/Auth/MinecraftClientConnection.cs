@@ -16,7 +16,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace FiguraServer.FiguraServer.Auth
+namespace FiguraServer.Server.Auth
 {
     /// <summary>
     /// This class manages the individual connection between the fake server and a minecraft client.
@@ -164,7 +164,7 @@ namespace FiguraServer.FiguraServer.Auth
                             }
                             catch (Exception e)
                             {
-                                Console.WriteLine(e.ToString());
+                                ////Console.WriteLine(e.ToString());
                                 //If handle fails, close connection.
                                 client.Close();
                                 return;
@@ -195,7 +195,7 @@ namespace FiguraServer.FiguraServer.Auth
             }
             catch (Exception e) //END MAIN BLOCK
             {
-                Console.WriteLine(e.ToString());
+                ////Console.WriteLine(e.ToString());
             }
         }
 
@@ -241,20 +241,20 @@ namespace FiguraServer.FiguraServer.Auth
             packet.Read(data);
 
             connection.state = packet.nextState;
-            Console.WriteLine("Handshake with state " + packet.nextState);
+            ////Console.WriteLine("Handshake with state " + packet.nextState);
         }
 
         //Status.
         private static void StatusRequestHandler(byte[] data, MemoryStream stream, MinecraftClientConnection connection)
         {
-            Console.WriteLine("Status Request");
+            ////Console.WriteLine("Status Request");
 
             connection.WriteString(serverStatusResponse);
             connection.Flush(0);
         }
         private static void PingRequestHandler(byte[] data, MemoryStream stream, MinecraftClientConnection connection)
         {
-            Console.WriteLine("Ping Request");
+            ////Console.WriteLine("Ping Request");
 
             long l = BitConverter.ToInt64(data, 0);
             connection.WriteLong(l);
@@ -264,7 +264,7 @@ namespace FiguraServer.FiguraServer.Auth
         //Login.
         private static void LoginStartHandler(byte[] data, MemoryStream stream, MinecraftClientConnection connection)
         {
-            Console.WriteLine("Login Start");
+            ////Console.WriteLine("Login Start");
 
             //Grab username.
             connection.connectingUsername = ReadStringAsync(stream).Result;
@@ -290,7 +290,7 @@ namespace FiguraServer.FiguraServer.Auth
         private static void ServerAuthRequestHandler(byte[] data, MemoryStream stream, MinecraftClientConnection connection)
         {
 
-            Console.WriteLine("Server Auth Request");
+            ////Console.WriteLine("Server Auth Request");
 
             //Read secret.
             int secretLength = ReadVarIntAsync(stream).Result;
@@ -328,6 +328,7 @@ namespace FiguraServer.FiguraServer.Auth
             }
 
             //Auth success!!!
+            ////Console.WriteLine("Auth Complete for user " + connection.connectingUsername);
 
             //Turn on encryption
             connection.enableEncryption = true;
@@ -663,7 +664,7 @@ namespace FiguraServer.FiguraServer.Auth
 
             stream.Write(buffer, 0, buffer.Length);
 
-            //Console.WriteLine("Writing " + (buffer.Length) + " bytes");
+            //////Console.WriteLine("Writing " + (buffer.Length) + " bytes");
         }
 
         #endregion
