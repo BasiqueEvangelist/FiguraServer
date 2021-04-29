@@ -12,13 +12,13 @@ namespace FiguraServer.Server
 {
     public class DatabaseAccessor : IDisposable
     {
-        public SqlConnection Connection { get; }
+        public MySqlConnection Connection { get; }
         public MySqlCompiler Compiler { get; }
         public QueryFactory QueryFactory { get; }
 
         public DatabaseAccessor()
         {
-            Connection = new SqlConnection(Program.sqlConnectionString);
+            Connection = new MySqlConnection(Program.sqlConnectionString);
             Compiler = new MySqlCompiler();
 
             QueryFactory = new QueryFactory(Connection, Compiler);
@@ -36,12 +36,53 @@ namespace FiguraServer.Server
         //Returns the NBT data for the avatar from the UUID.
         public async Task<byte[]> GetAvatarData(Guid uuid)
         {
-            var avatars = await QueryFactory.Query("avatar_data").Select("nbt").Where("uuid", uuid.ToString("N")).GetAsync();
+            try
+            {
+                var avatars = await QueryFactory.Query("avatar_data").Select("nbt").Where("uuid", uuid.ToString("N")).GetAsync();
 
-            if (avatars.Count() == 0)
+                if (avatars.Count() == 0)
+                    return null;
+
+                return avatars.First().nbt;
+            } catch (Exception e)
+            {
                 return null;
+            }
+        }
 
-            return avatars.First().nbt;
+        public async Task<string> GetAvatarHash(Guid uuid)
+        {
+            try
+            {
+                var avatars = await QueryFactory.Query("avatar_data").Select("hash").Where("uuid", uuid.ToString("N")).GetAsync();
+
+                if (avatars.Count() == 0)
+                    return null;
+
+                return avatars.First().hash;
+            }
+            catch (Exception e)
+            {
+                return null;
+            }
+        }
+
+
+        public async Task<int> GetAvatarSize(Guid uuid)
+        {
+            try
+            {
+                var avatars = await QueryFactory.Query("avatar_data").Select("size").Where("uuid", uuid.ToString("N")).GetAsync();
+
+                if (avatars.Count() == 0)
+                    return -1;
+
+                return avatars.First().size;
+            }
+            catch (Exception e)
+            {
+                return -1;
+            }
         }
 
         //Returns the full avatar from the UUID.
@@ -70,18 +111,55 @@ namespace FiguraServer.Server
             return await GetAvatar(firstResult.current_avatar);
         }
 
-        //Posts an avatar to the database
-        public async Task PostAvatar(Avatar avatar)
+        //Gets the avatar a user is currently using, by the user's UUID
+        public async Task<byte[]> GetAvatarDataForUser(Guid userUUID)
         {
-            bool avatarExists = GetAvatar(avatar.id) != null;
+            var userData = await QueryFactory.Query("user_data").Where("uuid", userUUID.ToString("N")).GetAsync();
 
-            object avatarOutput = avatar.GetData();
+            if (userData.Count() == 0)
+            {
+                return null;
+            }
 
-            await QueryFactory.Query("avatar_data").When(
-                avatarExists,
-                q => q.AsUpdate(avatarOutput),
-                q => q.AsInsert(avatarOutput)
-            ).GetAsync();
+            var firstResult = userData.First();
+
+            Guid id = new Guid(firstResult.current_avatar);
+
+            return await GetAvatarData(id);
+        }
+
+        //Gets the avatar a user is currently using, by the user's UUID
+        public async Task<string> GetAvatarHashForUser(Guid userUUID)
+        {
+            var userData = await QueryFactory.Query("user_data").Where("uuid", userUUID.ToString("N")).GetAsync();
+
+            if (userData.Count() == 0)
+            {
+                return null;
+            }
+
+            var firstResult = userData.First();
+
+            Guid id = new Guid(firstResult.current_avatar);
+
+            return await GetAvatarHash(id);
+        }
+
+        //Posts an avatar to the database
+        public async Task<int> PostAvatar(Avatar avatar)
+        {
+            return await QueryFactory.Query("avatar_data").InsertAsync(avatar.GetData());
+        }
+
+        public async Task<int> UpdateAvatar(Guid uuid, Dictionary<string, object> toUpdate)
+        {
+            return await QueryFactory.Query("avatar_data").Where("uuid", uuid.ToString("N")).UpdateAsync(toUpdate, timeout: 1000);
+        }
+
+        public async Task DeleteAvatar(Guid uuid)
+        {
+            Console.Out.WriteLine("Deleting avatar with UUID " + uuid);
+            await QueryFactory.Query("avatar_data").Where("uuid", uuid.ToString("N")).DeleteAsync(timeout: 1000);
         }
         #endregion
 
@@ -106,43 +184,10 @@ namespace FiguraServer.Server
             return new User(users.First());
         }
 
-        #region Updates
-        public async Task UpdateUserAvatar(User user)
+        public async Task<int> UpdateUser(Guid uuid, Dictionary<string, object> toUpdate)
         {
-            await QueryFactory.Query("user_data").Where("id", user.id.ToString("N")).UpdateAsync(new
-            {
-                current_avatar = user.currentAvatarID.ToString("N")
-            });
+            return await QueryFactory.Query("user_data").Where("uuid", uuid.ToString("N")).UpdateAsync(toUpdate, timeout: 1000);
         }
-        public async Task UpdateUserKarma(User user)
-        {
-            await QueryFactory.Query("user_data").Where("id", user.id.ToString("N")).UpdateAsync(new
-            {
-                karma = user.karma
-            });
-        }
-        public async Task UpdateUserTrustData(User user)
-        {
-            await QueryFactory.Query("user_data").Where("id", user.id.ToString("N")).UpdateAsync(new
-            {
-                trust_data = Extensions.GetBytesFromNBTCompound(user.trustData)
-            });
-        }
-        public async Task UpdateUserFavoriteData(User user)
-        {
-            await QueryFactory.Query("user_data").Where("id", user.id.ToString("N")).UpdateAsync(new
-            {
-                favorite_data = Extensions.GetBytesFromNBTCompound(user.favoriteData)
-            });
-        }
-        public async Task UpdateUserConfig(User user)
-        {
-            await QueryFactory.Query("user_data").Where("id", user.id.ToString("N")).UpdateAsync(new
-            {
-                config = Extensions.GetBytesFromNBTCompound(user.config)
-            });
-        }
-        #endregion
 
         #endregion
 

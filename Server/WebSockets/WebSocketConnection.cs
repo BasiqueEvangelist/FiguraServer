@@ -1,5 +1,6 @@
-﻿using FiguraServer.Server.Auth;
-using FiguraServer.Server.WebSockets.Senders;
+﻿using FiguraServer.Data;
+using FiguraServer.Server.Auth;
+using FiguraServer.Server.WebSockets.Messages;
 using Microsoft.AspNetCore.SignalR;
 using Newtonsoft.Json.Linq;
 using System;
@@ -33,6 +34,9 @@ namespace FiguraServer.Server.WebSockets
 
         private MessageHandlerProtocol handlerProtocol = null;
 
+        //The User object for this connection. We keep this around because it might be modified, a lot.
+        public User connectionUser = null;
+
         public WebSocketConnection(WebSocket socket)
         {
             lastSendTask = new Task(() => { });
@@ -43,22 +47,27 @@ namespace FiguraServer.Server.WebSockets
         public async Task Run()
         {
             bool success = await SetupConnection();
+
+            //Retreive player for this.
+            using (DatabaseAccessor accessor = new DatabaseAccessor())
+                connectionUser = await accessor.GetOrCreateUser(playerID);
+
             if (socket.State != WebSocketState.Open || success == false)
                 return;
             await MessageLoop();
 
-            ////Console.Out.WriteLine("Closed connection!");
+            Console.Out.WriteLine("Closed connection!");
         }
 
         public async Task<byte[]> GetNextMessage()
         {
-            ////Console.Out.WriteLine("Getting Message.");
+            Console.Out.WriteLine("Getting Message.");
 
             byte[] buffer = new byte[1024];
 
             try
             {
-                
+
                 var msg = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), GetTimeoutCancelToken(1000 * 15)); //Keep connection open for 15 seconds
 
                 using (MemoryStream ms = new MemoryStream())
@@ -67,8 +76,6 @@ namespace FiguraServer.Server.WebSockets
                     //While not end of message and while close status is empty (not closed)
                     while (msg.CloseStatus != WebSocketCloseStatus.Empty)
                     {
-                        ////Console.Out.WriteLine("Processing Message Fragment.");
-
                         await ms.WriteAsync(buffer, 0, msg.Count);
 
                         //Stop getting if this is the end of the message.
@@ -82,7 +89,7 @@ namespace FiguraServer.Server.WebSockets
                         //If size of message is too large
                         if (ms.Length >= 1024 * 110)
                         {
-                            ////Console.Out.WriteLine("Message is too large");
+                            Console.Out.WriteLine("Message is too large.");
 
                             //Read rest of message, do nothing with the data tho
                             while (msg.EndOfMessage == false && msg.CloseStatus != WebSocketCloseStatus.Empty)
@@ -95,14 +102,14 @@ namespace FiguraServer.Server.WebSockets
                     //If connection closed, return 0-length byte array.
                     if (msg.CloseStatus == WebSocketCloseStatus.Empty)
                     {
-                        ////Console.Out.WriteLine("Connection was closed from client");
+                        Console.Out.WriteLine("Connection was closed from client");
                         return new byte[0];
                     }
 
-                    ////Console.Out.WriteLine("End Of Message. Length:" + ms.Length);
+                    Console.Out.WriteLine("End Of Message. Length:" + ms.Length);
                     return ms.ToArray();
                 }
-            } 
+            }
             catch (Exception e)
             {
 
@@ -114,14 +121,14 @@ namespace FiguraServer.Server.WebSockets
         //Sets up the connection, verifies JWT, all of that jazz.
         public async Task<bool> SetupConnection()
         {
-            ////Console.Out.WriteLine("Setup connection!");
+            Console.Out.WriteLine("Setup connection!");
 
             //First, grab the JWT for the client.
             byte[] jwtMessage = await GetNextMessage();
 
             if (jwtMessage.Length == 0)
             {
-                ////Console.Out.WriteLine("No JWT received");
+                Console.Out.WriteLine("No JWT received");
                 return false;
             }
 
@@ -130,14 +137,14 @@ namespace FiguraServer.Server.WebSockets
                 //Get token from string.
                 string token = GetStringFromMessage(jwtMessage);
 
-                ////Console.Out.WriteLine("Token is " + token);
+                Console.Out.WriteLine("Token is " + token);
 
                 //Verify token.
                 if (AuthenticationManager.IsTokenValid(token, out var claims))
                 {
                     //Token verified, pull user UUID from the JWT.
                     playerID = Guid.Parse(claims.First().Value);
-                    ////Console.Out.WriteLine("Connection verified for player " + playerID);
+                    Console.Out.WriteLine("Connection verified for player " + playerID);
 
                     //Get the protocol message.
                     byte[] protocolVersion = await GetNextMessage();
@@ -151,18 +158,18 @@ namespace FiguraServer.Server.WebSockets
                         int protocolValue = (int)protocolObject["protocol"];
                         handlerProtocol = allMessageHandlers[protocolValue];
 
-                        ////Console.Out.WriteLine("Protocol is version " + protocolValue);
+                        Console.Out.WriteLine("Protocol is version " + protocolValue);
                     }
                     catch
                     {
-                        ////Console.Out.WriteLine("Invalid Protocol Version.");
+                        Console.Out.WriteLine("Invalid Protocol Version.");
                         await socket.CloseAsync(WebSocketCloseStatus.PolicyViolation, "Invalid Protocol Version", CancellationToken.None);
                         return false;
                     }
                 }
                 else
                 {
-                    ////Console.Out.WriteLine("Invalid Token.");
+                    Console.Out.WriteLine("Invalid Token.");
 
                     await socket.CloseAsync(WebSocketCloseStatus.PolicyViolation, "Invalid Authentication", CancellationToken.None);
                     return false;
@@ -170,7 +177,7 @@ namespace FiguraServer.Server.WebSockets
             }
             catch (Exception e)
             {
-                ////Console.Out.WriteLine(e);
+                Console.Out.WriteLine(e);
                 await socket.CloseAsync(WebSocketCloseStatus.PolicyViolation, "Error During Setup", CancellationToken.None);
                 return false;
             }
@@ -189,30 +196,51 @@ namespace FiguraServer.Server.WebSockets
                 //Create memory stream and binary reader from message array
                 using (MemoryStream ms = new MemoryStream(messageData))
                 {
-                    using(BinaryReader br = new BinaryReader(ms))
+                    using (BinaryReader br = new BinaryReader(ms, Encoding.UTF8))
                     {
                         //If there is no handler expecting a body
-                        if(lastHandler == null)
+                        if (lastHandler == null)
                         {
                             sbyte handlerID = br.ReadSByte();
 
-                            ////Console.Out.WriteLine("Handling header with Handler ID:" + handlerID);
-
+                            //Get the handler by ID
                             if (handlerProtocol.registeredMessages.TryGetValue(handlerID, out var handler))
                             {
-                                await handler.HandleHeader(this, br);
+                                Console.Out.WriteLine("Handling header with Handler ID:" + handlerID);
+
+                                try
+                                {
+                                    await handler.HandleHeader(this, br);
+                                    Console.Out.WriteLine("Handled.");
+                                }
+                                catch (Exception e)
+                                {
+                                    Console.WriteLine(e);
+                                }
 
                                 if (handler.ExpectBody())
                                 {
                                     lastHandler = handler;
                                 }
                             }
-                        } 
+                            else
+                            {
+                                Console.Out.WriteLine("No header with Handler ID:" + handlerID);
+                            }
+                        }
                         else //If there IS a handler expecting a body.
                         {
-                            ////Console.Out.WriteLine("Handling Body");
+                            Console.Out.WriteLine("Handling Body.");
 
-                            await lastHandler.HandleBody(this, br);
+                            try
+                            {
+                                await lastHandler.HandleBody(this, br);
+                                Console.Out.WriteLine("Handled.");
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine(e);
+                            }
                             lastHandler = null;
                         }
                     }

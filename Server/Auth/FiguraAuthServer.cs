@@ -61,7 +61,7 @@ namespace FiguraServer.Server.Auth
         {
             serverListener = new TcpListener(IPAddress.Any, port);
             serverListener.Start();
-            //Console.WriteLine("Started 'Minecraft' server on port " + port );
+            Console.WriteLine("Started 'Minecraft' server on port " + port );
 
             while (isRunning)
             {
@@ -75,13 +75,13 @@ namespace FiguraServer.Server.Auth
                 }
             }
 
-            //Console.WriteLine("Stopping 'Minecraft' Server");
+            Console.WriteLine("Stopping 'Minecraft' Server");
             serverListener.Stop();
         }
 
         private static async Task GetNextConnection()
         {
-            //Console.WriteLine("Connection started");
+            Console.WriteLine("Connection started");
             TcpClient client = await serverListener.AcceptTcpClientAsync();
 
             MinecraftClientConnection mcc = new MinecraftClientConnection(client);

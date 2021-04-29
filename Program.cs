@@ -31,6 +31,7 @@ namespace FiguraServer
                         .ConfigureWebHostDefaults(webBuilder =>
                         {
                             webBuilder.UseStartup<Startup>();
+                            webBuilder.UseUrls("http://localhost:6050");
                         }).Build().Run();
                 });
                 webAppTask.Start();
@@ -43,7 +44,7 @@ namespace FiguraServer
             }
             catch (Exception e)
             {
-                //Console.WriteLine(e);
+                Console.WriteLine(e);
             }
         }
     }

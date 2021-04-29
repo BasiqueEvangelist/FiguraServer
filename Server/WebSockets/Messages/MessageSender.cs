@@ -2,10 +2,11 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace FiguraServer.Server.WebSockets.Senders
+namespace FiguraServer.Server.WebSockets.Messages
 {
     public class MessageSender
     {
@@ -25,7 +26,7 @@ namespace FiguraServer.Server.WebSockets.Senders
             //Build Body.
             using (MemoryStream ms = new MemoryStream())
             {
-                using (BinaryWriter bw = new BinaryWriter(ms))
+                using (BinaryWriter bw = new BinaryWriter(ms, Encoding.UTF8))
                 {
                     await WriteBody(bw);
 
@@ -37,7 +38,7 @@ namespace FiguraServer.Server.WebSockets.Senders
             //Build & Send Header
             using (MemoryStream ms = new MemoryStream())
             {
-                using (BinaryWriter bw = new BinaryWriter(ms))
+                using (BinaryWriter bw = new BinaryWriter(ms, Encoding.UTF8))
                 {
                     bw.Write(messageID);
 
@@ -64,6 +65,16 @@ namespace FiguraServer.Server.WebSockets.Senders
         public virtual async Task WriteBody(BinaryWriter writer)
         {
 
+        }
+
+        public static void WriteMinecraftUUIDToBinaryWriter(Guid id, BinaryWriter bw)
+        {
+            string guid = id.ToString();
+
+            byte[] data = Encoding.UTF8.GetBytes(guid);
+
+            bw.Write(data.Length);
+            bw.Write(data);
         }
     }
 }

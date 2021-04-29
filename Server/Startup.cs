@@ -50,7 +50,7 @@ namespace FiguraServer
                 app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "FiguraServer v1"));
             }
 
-            app.UseHttpsRedirection();
+            //app.UseHttpsRedirection();
 
             app.UseRouting();
 
@@ -65,12 +65,18 @@ namespace FiguraServer
 
             app.Use(async (context, next) =>
             {
-                if (context.Request.Path == "/connect" && context.WebSockets.IsWebSocketRequest)
+
+                Console.Out.WriteLine("TEST! " + context.Request.Path + "|" + context.WebSockets.IsWebSocketRequest);
+
+                if (context.Request.Path == "/connect/" && context.WebSockets.IsWebSocketRequest)
                 {
+
                     try
                     {
+                        Console.Out.WriteLine("Accepting websocket");
                         using (WebSocket webSocket = await context.WebSockets.AcceptWebSocketAsync())
                         {
+                            Console.Out.WriteLine("Accepted.");
                             await new WebSocketConnection(webSocket).Run();
                         }
                     }
@@ -79,7 +85,7 @@ namespace FiguraServer
                         if (e is System.Net.WebSockets.WebSocketException)
                             return;
 
-                        //Console.Out.WriteLine(e);
+                        Console.Out.WriteLine(e);
                     }
                 }
             });

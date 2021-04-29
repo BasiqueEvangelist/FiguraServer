@@ -3,10 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace FiguraServer.Server.WebSockets.Handlers
+namespace FiguraServer.Server.WebSockets.Messages.Avatars
 {
-    public class UploadAvatarRequestHandler : MessageHandler
+    public class DeleteAvatarRequestHandler
     {
-
     }
 }
