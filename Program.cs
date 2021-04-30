@@ -25,22 +25,12 @@ namespace FiguraServer
 
             try
             {
-                Task webAppTask = new Task(() =>
-                {
-                    Host.CreateDefaultBuilder(args)
-                        .ConfigureWebHostDefaults(webBuilder =>
-                        {
-                            webBuilder.UseStartup<Startup>();
-                            webBuilder.UseUrls("http://localhost:6050");
-                        }).Build().Run();
-                });
-                webAppTask.Start();
-
-                Task minecraftServerTask = FiguraAuthServer.Start();
-                minecraftServerTask.Start();
-
-                await webAppTask;
-                await minecraftServerTask;
+                Host.CreateDefaultBuilder(args)
+                    .ConfigureWebHostDefaults(webBuilder =>
+                    {
+                        webBuilder.UseStartup<Startup>();
+                        webBuilder.UseUrls("http://localhost:6050");
+                    }).Build().Run();
             }
             catch (Exception e)
             {

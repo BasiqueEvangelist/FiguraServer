@@ -1,3 +1,4 @@
+using FiguraServer.Server.Auth;
 using FiguraServer.Server.WebSockets;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -38,6 +39,8 @@ namespace FiguraServer
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "FiguraServer", Version = "v1" });
             });
+
+            services.AddHostedService<FiguraAuthServer>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
