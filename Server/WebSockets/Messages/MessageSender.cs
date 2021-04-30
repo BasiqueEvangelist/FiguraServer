@@ -53,8 +53,11 @@ namespace FiguraServer.Server.WebSockets.Messages
                 }
             }
 
-            //Send Body.
-            await connection.socket.SendAsync(new ArraySegment<byte>(bodyTemp), System.Net.WebSockets.WebSocketMessageType.Binary, true, CancellationToken.None);
+            if (bodyTemp != null)
+            {
+                //Send Body.
+                await connection.socket.SendAsync(new ArraySegment<byte>(bodyTemp), System.Net.WebSockets.WebSocketMessageType.Binary, true, CancellationToken.None);
+            }
         }
 
         public virtual async Task WriteHeader(BinaryWriter writer)
