@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace FiguraServer.Server.WebSockets.Messages.Users
@@ -15,7 +16,21 @@ namespace FiguraServer.Server.WebSockets.Messages.Users
 
             Guid id = ReadMinecraftUUIDFromBinaryReader(reader);
 
-            connection.SendMessage(new UserAvatarHashProvideResponse(id));
+
+            byte[] getHash;
+            using (DatabaseAccessor accessor = new DatabaseAccessor())
+            {
+                string s = await accessor.GetAvatarHashForUser(id);
+
+                if (s == null)
+                {
+                    return string.Empty;
+                }
+
+                getHash = Encoding.UTF8.GetBytes(s);
+            }
+
+            connection.SendMessage(new UserAvatarHashProvideResponse(id, getHash));
 
             return string.Empty;
         }

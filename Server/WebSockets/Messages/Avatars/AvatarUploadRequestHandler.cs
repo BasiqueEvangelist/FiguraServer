@@ -38,11 +38,6 @@ namespace FiguraServer.Server.WebSockets.Messages.Avatars
             return string.Empty;
         }
 
-        public override bool ExpectBody()
-        {
-            return true;
-        }
-
         public void OnSuccess(Guid avatarID, WebSocketConnection connection)
         {
             connection.SendMessage(new AvatarUploadResponse(avatarID));

@@ -24,7 +24,7 @@ namespace FiguraServer.Server.WebSockets.Messages
 
         public virtual bool ExpectBody()
         {
-            return false;
+            return bodyLength > 0;
         }
 
         public static Guid ReadMinecraftUUIDFromBinaryReader(BinaryReader br)

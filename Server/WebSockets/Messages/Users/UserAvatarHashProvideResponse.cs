@@ -10,8 +10,9 @@ namespace FiguraServer.Server.WebSockets.Messages.Users
     public class UserAvatarHashProvideResponse : MessageSender
     {
         public Guid userUUID;
+        public byte[] hash;
 
-        public UserAvatarHashProvideResponse(Guid id) : base(MessageIDs.USER_AVATAR_HASH_PROVIDE_RESPONSE_ID)
+        public UserAvatarHashProvideResponse(Guid id, byte[] hash) : base(MessageIDs.USER_AVATAR_HASH_PROVIDE_RESPONSE_ID)
         {
             this.userUUID = id;
         }
@@ -20,21 +21,9 @@ namespace FiguraServer.Server.WebSockets.Messages.Users
         {
             await base.WriteHeader(writer);
 
-            byte[] getHash;
-            using (DatabaseAccessor accessor = new DatabaseAccessor()) {
-                string s = await accessor.GetAvatarHashForUser(userUUID);
-
-                if (s == null)
-                {
-                    return;
-                }
-
-                getHash = Encoding.UTF8.GetBytes(s);
-            }
-
             WriteMinecraftUUIDToBinaryWriter(userUUID, writer);
-            writer.Write(getHash.Length);
-            writer.Write(getHash);
+            writer.Write(hash.Length);
+            writer.Write(hash);
         }
 
     }
