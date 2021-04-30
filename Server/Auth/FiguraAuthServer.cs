@@ -41,10 +41,11 @@ namespace FiguraServer.Server.Auth
 
             try
             {
-                while (!stoppingToken.IsCancellationRequested)
-                {
-                    await Task.WhenAny(GetNextConnection(), Task.Delay(-1, stoppingToken));
-                }
+                using (stoppingToken.Register(serverListener.Stop))
+                    while (!stoppingToken.IsCancellationRequested)
+                    {
+                        await GetNextConnection();
+                    }
             }
             finally
             {
