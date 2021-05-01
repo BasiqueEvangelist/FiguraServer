@@ -24,9 +24,9 @@ namespace FiguraServer.Server.WebSockets.Messages.Avatars
             this.retCode = retCode;
         }
 
-        public async override Task WriteHeader(BinaryWriter writer)
+        public async override Task Write(BinaryWriter writer)
         {
-            await base.WriteHeader(writer);
+            await base.Write(writer);
 
             //Write the code for this response
             writer.Write(retCode);

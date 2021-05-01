@@ -9,11 +9,11 @@ namespace FiguraServer.Server.WebSockets.Messages.Avatars
     public class AvatarUploadRequestHandler : MessageHandler
     {
 
-        public async override Task<string> HandleBody(WebSocketConnection connection, BinaryReader reader)
+        public async override Task<string> HandleMessage(WebSocketConnection connection, BinaryReader reader)
         {
-            await base.HandleBody(connection, reader);
+            int avatarLength = reader.ReadInt32();
 
-            (sbyte retCode, Guid avatarID) = await connection.connectionUser.TryAddAvatar(reader.ReadBytes(bodyLength));
+            (sbyte retCode, Guid avatarID) = await connection.connectionUser.TryAddAvatar(reader.ReadBytes(avatarLength));
 
             switch (retCode)
             {
