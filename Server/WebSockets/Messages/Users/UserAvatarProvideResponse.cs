@@ -19,17 +19,12 @@ namespace FiguraServer.Server.WebSockets.Messages.Users
             this.payload = payload;
         }
 
-        public async override Task WriteHeader(BinaryWriter writer)
+        public async override Task Write(BinaryWriter writer)
         {
-            await base.WriteHeader(writer);
+            await base.Write(writer);
 
             WriteMinecraftUUIDToBinaryWriter(uuid, writer);
-        }
-
-        public async override Task WriteBody(BinaryWriter writer)
-        {
-            await base.WriteBody(writer);
-
+            writer.Write(payload.Length);
             writer.Write(payload);
         }
     }

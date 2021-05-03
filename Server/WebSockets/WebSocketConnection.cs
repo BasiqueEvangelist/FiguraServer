@@ -189,7 +189,6 @@ namespace FiguraServer.Server.WebSockets
         public async Task MessageLoop()
         {
             byte[] messageData = await GetNextMessage();
-            MessageHandler lastHandler = null;
 
             while (messageData.Length != 0 && socket.State == WebSocketState.Open)
             {
@@ -198,50 +197,26 @@ namespace FiguraServer.Server.WebSockets
                 {
                     using (BinaryReader br = new BinaryReader(ms, Encoding.UTF8))
                     {
-                        //If there is no handler expecting a body
-                        if (lastHandler == null)
+                        sbyte handlerID = br.ReadSByte();
+
+                        //Get the handler by ID
+                        if (handlerProtocol.registeredMessages.TryGetValue(handlerID, out var handler))
                         {
-                            sbyte handlerID = br.ReadSByte();
-
-                            //Get the handler by ID
-                            if (handlerProtocol.registeredMessages.TryGetValue(handlerID, out var handler))
-                            {
-                                Console.Out.WriteLine("Handling header with Handler ID:" + handlerID);
-
-                                try
-                                {
-                                    await handler.HandleHeader(this, br);
-                                    Console.Out.WriteLine("Handled.");
-                                }
-                                catch (Exception e)
-                                {
-                                    Console.WriteLine(e);
-                                }
-
-                                if (handler.ExpectBody())
-                                {
-                                    lastHandler = handler;
-                                }
-                            }
-                            else
-                            {
-                                Console.Out.WriteLine("No header with Handler ID:" + handlerID);
-                            }
-                        }
-                        else //If there IS a handler expecting a body.
-                        {
-                            Console.Out.WriteLine("Handling Body.");
+                            Console.Out.WriteLine("Handling message with Handler ID:" + handlerID);
 
                             try
                             {
-                                await lastHandler.HandleBody(this, br);
+                                await handler.HandleMessage(this, br);
                                 Console.Out.WriteLine("Handled.");
                             }
                             catch (Exception e)
                             {
                                 Console.WriteLine(e);
                             }
-                            lastHandler = null;
+                        }
+                        else
+                        {
+                            Console.Out.WriteLine("No message with Handler ID:" + handlerID);
                         }
                     }
 

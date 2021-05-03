@@ -20,49 +20,21 @@ namespace FiguraServer.Server.WebSockets.Messages
 
         public virtual async Task SendData(WebSocketConnection connection)
         {
-
-            byte[] bodyTemp = null;
-
-            //Build Body.
-            using (MemoryStream ms = new MemoryStream())
-            {
-                using (BinaryWriter bw = new BinaryWriter(ms, Encoding.UTF8))
-                {
-                    await WriteBody(bw);
-
-                    if (ms.Length > 0)
-                        bodyTemp = ms.ToArray();
-                }
-            }
-
-            //Build & Send Header
+            //Build & Send Message
             using (MemoryStream ms = new MemoryStream())
             {
                 using (BinaryWriter bw = new BinaryWriter(ms, Encoding.UTF8))
                 {
                     bw.Write(messageID);
 
-                    if (bodyTemp != null)
-                        bw.Write(bodyTemp.Length);
-                    else
-                        bw.Write((int)0);
-
-                    await WriteHeader(bw);
+                    await Write(bw);
 
                     await connection.socket.SendAsync(new ArraySegment<byte>(ms.ToArray()), System.Net.WebSockets.WebSocketMessageType.Binary, true, CancellationToken.None);
                 }
             }
-
-            //Send Body.
-            await connection.socket.SendAsync(new ArraySegment<byte>(bodyTemp), System.Net.WebSockets.WebSocketMessageType.Binary, true, CancellationToken.None);
         }
 
-        public virtual async Task WriteHeader(BinaryWriter writer)
-        {
-
-        }
-
-        public virtual async Task WriteBody(BinaryWriter writer)
+        public virtual async Task Write(BinaryWriter writer)
         {
 
         }

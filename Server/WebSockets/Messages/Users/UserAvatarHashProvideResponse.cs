@@ -17,9 +17,9 @@ namespace FiguraServer.Server.WebSockets.Messages.Users
             this.userUUID = id;
         }
 
-        public async override Task WriteHeader(BinaryWriter writer)
+        public async override Task Write(BinaryWriter writer)
         {
-            await base.WriteHeader(writer);
+            await base.Write(writer);
 
             WriteMinecraftUUIDToBinaryWriter(userUUID, writer);
             writer.Write(hash.Length);

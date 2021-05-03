@@ -8,9 +8,9 @@ namespace FiguraServer.Server.WebSockets.Messages.Users
 {
     public class UserDeleteCurrentAvatarRequestHandler : MessageHandler
     {
-        public async override Task<string> HandleHeader(WebSocketConnection connection, BinaryReader reader)
+        public async override Task<string> HandleMessage(WebSocketConnection connection, BinaryReader reader)
         {
-            await base.HandleHeader(connection, reader);
+            await base.HandleMessage(connection, reader);
 
             await connection.connectionUser.TryDeleteCurrentAvatar();
 

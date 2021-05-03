@@ -10,21 +10,9 @@ namespace FiguraServer.Server.WebSockets.Messages
 {
     public class MessageHandler
     {
-        public int bodyLength;
-
-        public virtual async Task<string> HandleHeader(WebSocketConnection connection, BinaryReader reader) {
-            bodyLength = reader.ReadInt32();
-            return string.Empty;
-        }
-
-        public virtual async Task<string> HandleBody(WebSocketConnection connection, BinaryReader reader)
+        public virtual async Task<string> HandleMessage(WebSocketConnection connection, BinaryReader reader)
         {
             return string.Empty;
-        }
-
-        public virtual bool ExpectBody()
-        {
-            return bodyLength > 0;
         }
 
         public static Guid ReadMinecraftUUIDFromBinaryReader(BinaryReader br)

@@ -9,14 +9,14 @@ namespace FiguraServer.Server.WebSockets.Messages.Users
     public class UserSetAvatarRequestHandler : MessageHandler
     {
 
-        public async override Task<string> HandleHeader(WebSocketConnection connection, BinaryReader reader)
+        public async override Task<string> HandleMessage(WebSocketConnection connection, BinaryReader reader)
         {
-            await base.HandleHeader(connection, reader);
+            await base.HandleMessage(connection, reader);
 
             Guid id = ReadMinecraftUUIDFromBinaryReader(reader);
             bool shouldDelete = reader.ReadSByte() == 1;
 
-            if(shouldDelete)
+            if (shouldDelete)
                 await connection.connectionUser.TryDeleteCurrentAvatar();
             await connection.connectionUser.SetCurrentAvatar(id);
 

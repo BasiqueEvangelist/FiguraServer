@@ -16,10 +16,11 @@ namespace FiguraServer.Server.WebSockets.Messages.Avatars
             this.responseData = responseData;
         }
 
-        public async override Task WriteBody(BinaryWriter writer)
+        public async override Task Write(BinaryWriter writer)
         {
-            await base.WriteBody(writer);
+            await base.Write(writer);
 
+            writer.Write(responseData.Length);
             writer.Write(responseData);
         }
 
