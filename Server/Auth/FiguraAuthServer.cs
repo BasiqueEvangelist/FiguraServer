@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using Microsoft.Extensions.Hosting;
+using Newtonsoft.Json;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Encodings;
 using Org.BouncyCastle.Crypto.Engines;
@@ -13,6 +14,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Security.Cryptography;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace FiguraServer.Server.Auth
@@ -20,66 +22,38 @@ namespace FiguraServer.Server.Auth
     /// <summary>
     /// This is a fake minecraft server, used to authenticate users and prove they own the minecraft account they say they own.
     /// </summary>
-    public static class FiguraAuthServer
+    public class FiguraAuthServer : BackgroundService
     {
         //Static HTTP client used for mojang auth shenanigans.
         public static HttpClient httpClient = new HttpClient();
 
-        private static TcpListener serverListener;
-        private static Task serverTask;
+        private TcpListener serverListener;
 
         public static bool isRunning = false;
 
-
-        /// <summary>
-        /// Starts the fake minecraft server
-        /// </summary>
-        /// <param name="port">The port to listen for traffic on. Defaults to 25565, the default minecraft port.</param>
-        public static Task Start(int port = 25565)
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            isRunning = false;
-            if (serverTask != null)
-                serverTask.Wait();
+            int port = 25565;
 
-            isRunning = true;
-            serverTask = new Task(async () => await RunServer(port));
-
-            return serverTask;
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public static async Task Stop()
-        {
-            isRunning = false;
-            await serverTask;
-        }
-
-
-        private static async Task RunServer(int port)
-        {
             serverListener = new TcpListener(IPAddress.Any, port);
             serverListener.Start();
-            Console.WriteLine("Started 'Minecraft' server on port " + port );
+            Console.WriteLine("Started 'Minecraft' server on port " + port);
 
-            while (isRunning)
+            try
             {
-                if (!serverListener.Pending())
-                {
-                    await Task.Delay(5);
-                }
-                else
-                {
-                    await GetNextConnection();
-                }
+                using (stoppingToken.Register(serverListener.Stop))
+                    while (!stoppingToken.IsCancellationRequested)
+                    {
+                        await GetNextConnection();
+                    }
             }
-
-            Console.WriteLine("Stopping 'Minecraft' Server");
-            serverListener.Stop();
+            finally
+            {
+                serverListener.Stop();
+            }
         }
 
-        private static async Task GetNextConnection()
+        private async Task GetNextConnection()
         {
             Console.WriteLine("Connection started");
             TcpClient client = await serverListener.AcceptTcpClientAsync();
