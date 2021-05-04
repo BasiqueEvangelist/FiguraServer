@@ -72,9 +72,9 @@ namespace FiguraServer.Server.Auth
             }
         }
 
-        public static string GenerateToken(string playerName)
+        public static async Task<string> GenerateToken(string playerName)
         {
-            string playerResponse = Get(string.Format("https://api.mojang.com/users/profiles/minecraft/{0}", playerName));
+            string playerResponse = await Get(string.Format("https://api.mojang.com/users/profiles/minecraft/{0}", playerName));
             JObject obj = JObject.Parse(playerResponse);
 
             if (obj.ContainsKey("error"))
@@ -103,12 +103,12 @@ namespace FiguraServer.Server.Auth
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        public static string Get(string uri)
+        public static async Task<string> Get(string uri)
         {
             HttpWebRequest request = (HttpWebRequest)WebRequest.Create(uri);
             request.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
 
-            using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+            using (HttpWebResponse response = (HttpWebResponse)await request.GetResponseAsync())
             using (Stream stream = response.GetResponseStream())
             using (StreamReader reader = new StreamReader(stream))
             {

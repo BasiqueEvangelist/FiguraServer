@@ -61,7 +61,7 @@ namespace FiguraServer.Server.WebSockets
 
         public async Task<byte[]> GetNextMessage()
         {
-            Console.Out.WriteLine("Getting Message.");
+            //Console.Out.WriteLine("Getting Message.");
 
             byte[] buffer = new byte[1024];
 
@@ -106,7 +106,7 @@ namespace FiguraServer.Server.WebSockets
                         return new byte[0];
                     }
 
-                    Console.Out.WriteLine("End Of Message. Length:" + ms.Length);
+                    //Console.Out.WriteLine("End Of Message. Length:" + ms.Length);
                     return ms.ToArray();
                 }
             }
@@ -202,7 +202,7 @@ namespace FiguraServer.Server.WebSockets
                         //Get the handler by ID
                         if (handlerProtocol.registeredMessages.TryGetValue(handlerID, out var handler))
                         {
-                            Console.Out.WriteLine("Handling message with Handler ID:" + handlerID);
+                            Console.Out.WriteLine("Handling message with Handler ID:" + handlerID + " and name " + handler.GetType().Name);
 
                             try
                             {

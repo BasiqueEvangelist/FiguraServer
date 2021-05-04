@@ -15,6 +15,7 @@ namespace FiguraServer.Server.WebSockets.Messages.Users
         public UserAvatarHashProvideResponse(Guid id, byte[] hash) : base(MessageIDs.USER_AVATAR_HASH_PROVIDE_RESPONSE_ID)
         {
             this.userUUID = id;
+            this.hash = hash;
         }
 
         public async override Task Write(BinaryWriter writer)

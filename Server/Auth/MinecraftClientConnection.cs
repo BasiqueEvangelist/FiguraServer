@@ -26,23 +26,25 @@ namespace FiguraServer.Server.Auth
     /// </summary>
     public class MinecraftClientConnection
     {
+        public delegate Task PacketHandler(byte[] data, MemoryStream stream, MinecraftClientConnection connection);
+
         /// <summary>
         /// Returns the handler for specific packets based on the connection's state.
         /// [state][packetID] = handler
         /// </summary>
-        public static Dictionary<int, Dictionary<int, Action<byte[], MemoryStream, MinecraftClientConnection>>> statePacketHandlers = new Dictionary<int, Dictionary<int, Action<byte[], MemoryStream, MinecraftClientConnection>>>()
+        public static Dictionary<int, Dictionary<int, PacketHandler>> statePacketHandlers = new Dictionary<int, Dictionary<int, PacketHandler>>()
         {
             //Waiting for handshake.
             {
                 0,
-                new Dictionary<int, Action<byte[], MemoryStream, MinecraftClientConnection>>(){
+                new Dictionary<int, PacketHandler>(){
                     { 0, HandshakePacketHandler },
                 }
             },
             //Status.
             {
                 1,
-                new Dictionary<int, Action<byte[], MemoryStream, MinecraftClientConnection>>()
+                new Dictionary<int, PacketHandler>()
                 {
                     { 0, StatusRequestHandler},
                     { 1, PingRequestHandler},
@@ -51,7 +53,7 @@ namespace FiguraServer.Server.Auth
             //Login.
             {
                 2,
-                new Dictionary<int, Action<byte[], MemoryStream, MinecraftClientConnection>>()
+                new Dictionary<int, PacketHandler>()
                 {
                     { 0, LoginStartHandler},
                     { 1, ServerAuthRequestHandler},
@@ -102,8 +104,7 @@ namespace FiguraServer.Server.Auth
 
             isRunning = true;
             //Create and start new processing task.
-            processingTask = new Task(async () => await ProcessPackets());
-            processingTask.Start();
+            processingTask = ProcessPackets();
         }
 
         public async Task Stop()
@@ -124,27 +125,6 @@ namespace FiguraServer.Server.Auth
                 while (isRunning)
                 {
 
-                    //Check for stream data.
-                    while (!stream.DataAvailable)
-                    {
-                        //Wait if no data.
-                        await Task.Delay(5);
-
-                        //Check if connection was closed.
-                        if (!client.Connected)
-                        {
-                            return;
-                        }
-
-                        //Check if we've stopped.
-                        if (!isRunning)
-                        {
-                            //Close connection.
-                            client.Close();
-                            return;
-                        }
-                    }
-
                     //Get next packet, wrap in data stream.
                     (int id, byte[] data) = await GetNextPacketAsync();
                     //Some packets use a stream better than a raw byte array, so, we have both in case we need them.
@@ -160,7 +140,7 @@ namespace FiguraServer.Server.Auth
                             try
                             {
                                 //Handle the data.
-                                handler(data, packetDataStream, this);
+                                await handler(data, packetDataStream, this);
                             }
                             catch (Exception e)
                             {
@@ -195,7 +175,7 @@ namespace FiguraServer.Server.Auth
             }
             catch (Exception e) //END MAIN BLOCK
             {
-                Console.WriteLine(e.ToString());
+                //Console.WriteLine(e.ToString());
             }
         }
 
@@ -235,24 +215,24 @@ namespace FiguraServer.Server.Auth
 
 
         //Handshake.
-        private static void HandshakePacketHandler(byte[] data, MemoryStream stream, MinecraftClientConnection connection)
+        private static async Task HandshakePacketHandler(byte[] data, MemoryStream stream, MinecraftClientConnection connection)
         {
             HandshakePacket packet = new HandshakePacket();
-            packet.Read(data);
+            await packet.Read(stream);
 
             connection.state = packet.nextState;
             Console.WriteLine("Handshake with state " + packet.nextState);
         }
 
         //Status.
-        private static void StatusRequestHandler(byte[] data, MemoryStream stream, MinecraftClientConnection connection)
+        private static async Task StatusRequestHandler(byte[] data, MemoryStream stream, MinecraftClientConnection connection)
         {
             Console.WriteLine("Status Request");
 
             connection.WriteString(serverStatusResponse);
             connection.Flush(0);
         }
-        private static void PingRequestHandler(byte[] data, MemoryStream stream, MinecraftClientConnection connection)
+        private static async Task PingRequestHandler(byte[] data, MemoryStream stream, MinecraftClientConnection connection)
         {
             Console.WriteLine("Ping Request");
 
@@ -262,12 +242,12 @@ namespace FiguraServer.Server.Auth
         }
 
         //Login.
-        private static void LoginStartHandler(byte[] data, MemoryStream stream, MinecraftClientConnection connection)
+        private static async Task LoginStartHandler(byte[] data, MemoryStream stream, MinecraftClientConnection connection)
         {
             Console.WriteLine("Login Start");
 
             //Grab username.
-            connection.connectingUsername = ReadStringAsync(stream).Result;
+            connection.connectingUsername = await ReadStringAsync(stream);
 
             //Generate encryption data needed for connection.
             connection.encryptionState = new FakeServerEncryptionState();
@@ -287,18 +267,18 @@ namespace FiguraServer.Server.Auth
             connection.Flush(1);
         }
 
-        private static void ServerAuthRequestHandler(byte[] data, MemoryStream stream, MinecraftClientConnection connection)
+        private static async Task ServerAuthRequestHandler(byte[] data, MemoryStream stream, MinecraftClientConnection connection)
         {
 
             Console.WriteLine("Server Auth Request");
 
             //Read secret.
-            int secretLength = ReadVarIntAsync(stream).Result;
+            int secretLength = await ReadVarIntAsync(stream);
             byte[] secret = new byte[secretLength];
             ReadBytesAsync(stream, secret).Wait();
 
             //Verify token.
-            int encryptedTokenLength = ReadVarIntAsync(stream).Result;
+            int encryptedTokenLength = await ReadVarIntAsync(stream);
             byte[] encryptedToken = new byte[encryptedTokenLength];
             ReadBytesAsync(stream, encryptedToken).Wait();
 
@@ -318,7 +298,7 @@ namespace FiguraServer.Server.Auth
             //Get the ID of the server the client joined, from the public key.
             string serverID = MinecraftShaDigest(connection.sharedKey.Concat(connection.encryptionState.publicKey).ToArray());
             //Verify the player has joined the server they say they have, using Mojang's auth.
-            FiguraAuthServer.JoinedResponse hasJoinedResponse = FiguraAuthServer.HasJoined(connection.connectingUsername, serverID).Result;
+            FiguraAuthServer.JoinedResponse hasJoinedResponse = await FiguraAuthServer.HasJoined(connection.connectingUsername, serverID);
 
             if(hasJoinedResponse == null)
             {
@@ -334,7 +314,7 @@ namespace FiguraServer.Server.Auth
             connection.enableEncryption = true;
 
             //Respond with JWT in kick message.
-            connection.WriteString(GetKickMessage(AuthenticationManager.GenerateToken(connection.connectingUsername)));
+            connection.WriteString(GetKickMessage(await AuthenticationManager.GenerateToken(connection.connectingUsername)));
             connection.Flush(0);
         }
 
@@ -347,19 +327,17 @@ namespace FiguraServer.Server.Auth
             public short port; //UNUSED
             public int nextState;
 
-            public void Read(byte[] data)
+            public async Task Read(Stream stream)
             {
-                int index = 0;
+                protocolVersion = await ReadVarIntAsync(stream);
 
-                protocolVersion = ReadVarInt(data, ref index);
+                serverAddr = await ReadStringAsync(stream);
 
-                int strLen = ReadVarInt(data, ref index);
-                serverAddr = ReadString(data, strLen, ref index);
-
-                byte[] dt = MinecraftClientConnection.Read(data, 2, ref index);
+                byte[] dt = new byte[2];
+                await MinecraftClientConnection.ReadBytesAsync(stream, dt);
                 port = BitConverter.ToInt16(dt);
 
-                nextState = ReadVarInt(data, ref index);
+                nextState = await ReadVarIntAsync(stream);
             }
         }
 
@@ -439,7 +417,7 @@ namespace FiguraServer.Server.Auth
             }
         }
 
-        internal static byte ReadByte(byte[] buffer, ref int index)
+        /*internal static byte ReadByte(byte[] buffer, ref int index)
         {
             return buffer[index++];
         }
@@ -450,7 +428,7 @@ namespace FiguraServer.Server.Auth
             Array.Copy(buffer, index, data, 0, length);
             index += length;
             return data;
-        }
+        }*/
 
         public static int GetVarIntLength(int val)
         {
@@ -464,7 +442,7 @@ namespace FiguraServer.Server.Auth
             return amount;
         }
 
-        internal static int ReadVarInt(byte[] buffer, ref int index)
+        /*internal static int ReadVarInt(byte[] buffer, ref int index)
         {
             var value = 0;
             var size = 0;
@@ -500,7 +478,7 @@ namespace FiguraServer.Server.Auth
         {
             var data = Read(buffer, length, ref index);
             return Encoding.UTF8.GetString(data);
-        }
+        }*/
 
 
         internal static async Task<byte> ReadByteAsync(Stream stream)
