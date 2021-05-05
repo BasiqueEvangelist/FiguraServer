@@ -175,7 +175,7 @@ namespace FiguraServer.Server.Auth
             }
             catch (Exception e) //END MAIN BLOCK
             {
-                //Console.WriteLine(e.ToString());
+                Console.WriteLine(e.ToString());
             }
         }
 
@@ -316,6 +316,8 @@ namespace FiguraServer.Server.Auth
             //Respond with JWT in kick message.
             connection.WriteString(GetKickMessage(await AuthenticationManager.GenerateToken(connection.connectingUsername)));
             connection.Flush(0);
+
+            connection.client.Close();
         }
 
         //Special packet just for the handshake. Very special.
