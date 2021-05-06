@@ -39,7 +39,7 @@ namespace FiguraServer.Server.WebSockets.Messages.Avatars
             }
             catch (Exception e)
             {
-                Console.WriteLine(e);
+                Logger.LogMessage(e.ToString());
             }
 
             return "N/A";

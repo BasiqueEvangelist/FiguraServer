@@ -68,7 +68,7 @@ namespace FiguraServer.Server.WebSockets
             try
             {
 
-                var msg = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), GetTimeoutCancelToken(1000 * 15)); //Keep connection open for 15 seconds
+                var msg = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), GetTimeoutCancelToken(1000 * 60 * 15)); //Keep connection open for 15 seconds
 
                 using (MemoryStream ms = new MemoryStream())
                 {
@@ -211,7 +211,7 @@ namespace FiguraServer.Server.WebSockets
                             }
                             catch (Exception e)
                             {
-                                Console.WriteLine(e);
+                                Logger.LogMessage(e.ToString());
                             }
                         }
                         else

@@ -34,7 +34,7 @@ namespace FiguraServer
             }
             catch (Exception e)
             {
-                Console.WriteLine(e);
+                Logger.LogMessage(e.ToString());
             }
         }
     }

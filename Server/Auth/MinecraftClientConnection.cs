@@ -10,6 +10,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Sockets;
 using System.Numerics;
 using System.Security.Cryptography;
@@ -144,7 +145,7 @@ namespace FiguraServer.Server.Auth
                             }
                             catch (Exception e)
                             {
-                                Console.WriteLine(e.ToString());
+                                Logger.LogMessage(e.ToString());
                                 //If handle fails, close connection.
                                 client.Close();
                                 return;
@@ -175,7 +176,7 @@ namespace FiguraServer.Server.Auth
             }
             catch (Exception e) //END MAIN BLOCK
             {
-                Console.WriteLine(e.ToString());
+                Logger.LogMessage(e.ToString());
             }
         }
 
@@ -221,30 +222,34 @@ namespace FiguraServer.Server.Auth
             await packet.Read(stream);
 
             connection.state = packet.nextState;
-            Console.WriteLine("Handshake with state " + packet.nextState);
+            Logger.LogMessage("Handshake with state " + packet.nextState);
+
+            Logger.LogMessage("IP is " + ((IPEndPoint)connection.client.Client.RemoteEndPoint).Address.ToString());
         }
 
         //Status.
         private static async Task StatusRequestHandler(byte[] data, MemoryStream stream, MinecraftClientConnection connection)
         {
-            Console.WriteLine("Status Request");
+            Logger.LogMessage("Status Request");
 
             connection.WriteString(serverStatusResponse);
             connection.Flush(0);
         }
         private static async Task PingRequestHandler(byte[] data, MemoryStream stream, MinecraftClientConnection connection)
         {
-            Console.WriteLine("Ping Request");
+            Logger.LogMessage("Ping Request");
 
             long l = BitConverter.ToInt64(data, 0);
             connection.WriteLong(l);
             connection.Flush(1);
+
+            connection.client.Close();
         }
 
         //Login.
         private static async Task LoginStartHandler(byte[] data, MemoryStream stream, MinecraftClientConnection connection)
         {
-            Console.WriteLine("Login Start");
+            Logger.LogMessage("Login Start");
 
             //Grab username.
             connection.connectingUsername = await ReadStringAsync(stream);
@@ -270,7 +275,7 @@ namespace FiguraServer.Server.Auth
         private static async Task ServerAuthRequestHandler(byte[] data, MemoryStream stream, MinecraftClientConnection connection)
         {
 
-            Console.WriteLine("Server Auth Request");
+            Logger.LogMessage("Server Auth Request");
 
             //Read secret.
             int secretLength = await ReadVarIntAsync(stream);
@@ -308,7 +313,7 @@ namespace FiguraServer.Server.Auth
             }
 
             //Auth success!!!
-            Console.WriteLine("Auth Complete for user " + connection.connectingUsername);
+            Logger.LogMessage("Auth Complete for user " + connection.connectingUsername);
 
             //Turn on encryption
             connection.enableEncryption = true;
@@ -336,7 +341,7 @@ namespace FiguraServer.Server.Auth
                 serverAddr = await ReadStringAsync(stream);
 
                 byte[] dt = new byte[2];
-                await MinecraftClientConnection.ReadBytesAsync(stream, dt);
+                await ReadBytesAsync(stream, dt);
                 port = BitConverter.ToInt16(dt);
 
                 nextState = await ReadVarIntAsync(stream);
@@ -485,14 +490,20 @@ namespace FiguraServer.Server.Auth
 
         internal static async Task<byte> ReadByteAsync(Stream stream)
         {
-            var b = new byte[1];
-            await stream.ReadAsync(b.AsMemory(0, 1));
-            return b[0];
+            byte[] buffer = new byte[1];
+            int count = await stream.ReadAsync(buffer);
+
+            if (count == 0)
+                throw new Exception("End of TCP Stream reached.");
+            return buffer[0];
         }
 
         internal static async Task ReadBytesAsync(Stream stream, byte[] target)
         {
-            await stream.ReadAsync(target.AsMemory(0, target.Length));
+            int count = await stream.ReadAsync(target);
+
+            if (count != target.Length)
+                throw new Exception("End of TCP Stream reached.");
         }
 
 
@@ -644,7 +655,7 @@ namespace FiguraServer.Server.Auth
 
             stream.Write(buffer, 0, buffer.Length);
 
-            //Console.WriteLine("Writing " + (buffer.Length) + " bytes");
+            //Logger.LogMessage("Writing " + (buffer.Length) + " bytes");
         }
 
         #endregion
