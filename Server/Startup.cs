@@ -15,6 +15,8 @@ namespace FiguraServer
 {
     public class Startup
     {
+        private static int currentConnections = 0;
+
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
@@ -69,27 +71,27 @@ namespace FiguraServer
             app.Use(async (context, next) =>
             {
 
-                Console.Out.WriteLine("TEST! " + context.Request.Path + "|" + context.WebSockets.IsWebSocketRequest);
+                Logger.LogMessage("TEST! " + context.Request.Path + "|" + context.WebSockets.IsWebSocketRequest);
 
                 if (context.Request.Path == "/connect/" && context.WebSockets.IsWebSocketRequest)
                 {
 
+                    currentConnections++;
                     try
                     {
-                        Console.Out.WriteLine("Accepting websocket");
+                        Logger.LogMessage("Accepting websocket. Total connections : " + currentConnections);
                         using (WebSocket webSocket = await context.WebSockets.AcceptWebSocketAsync())
                         {
-                            Console.Out.WriteLine("Accepted.");
                             await new WebSocketConnection(webSocket).Run();
                         }
                     }
                     catch (Exception e)
                     {
-                        if (e is System.Net.WebSockets.WebSocketException)
-                            return;
-
-                        Console.Out.WriteLine(e);
+                        Logger.LogMessage(e);
                     }
+                    currentConnections--;
+
+                    Logger.LogMessage("Websocket disposed.");
                 }
             });
         }

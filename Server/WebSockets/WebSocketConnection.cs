@@ -56,25 +56,24 @@ namespace FiguraServer.Server.WebSockets
                 return;
             await MessageLoop();
 
-            Console.Out.WriteLine("Closed connection!");
+            Logger.LogMessage("Closed connection!");
         }
 
         public async Task<byte[]> GetNextMessage()
         {
-            //Console.Out.WriteLine("Getting Message.");
+            Logger.LogMessage("Getting Message.");
 
             byte[] buffer = new byte[1024];
 
             try
             {
-
                 var msg = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), GetTimeoutCancelToken(1000 * 60 * 15)); //Keep connection open for 15 seconds
 
                 using (MemoryStream ms = new MemoryStream())
                 {
 
                     //While not end of message and while close status is empty (not closed)
-                    while (msg.CloseStatus != WebSocketCloseStatus.Empty)
+                    while (msg.CloseStatus == null)
                     {
                         await ms.WriteAsync(buffer, 0, msg.Count);
 
@@ -89,30 +88,35 @@ namespace FiguraServer.Server.WebSockets
                         //If size of message is too large
                         if (ms.Length >= 1024 * 110)
                         {
-                            Console.Out.WriteLine("Message is too large.");
+                            Logger.LogMessage("Message is too large.");
 
+                            int tries = 0;
                             //Read rest of message, do nothing with the data tho
-                            while (msg.EndOfMessage == false && msg.CloseStatus != WebSocketCloseStatus.Empty)
+                            while (tries < 1000 && msg.EndOfMessage == false && msg.CloseStatus == null)
+                            {
                                 msg = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), GetTimeoutCancelToken(1000));
+
+                                tries++;
+                            }
 
                             return new byte[0];
                         }
                     }
 
                     //If connection closed, return 0-length byte array.
-                    if (msg.CloseStatus == WebSocketCloseStatus.Empty)
+                    if (msg.CloseStatus != null)
                     {
-                        Console.Out.WriteLine("Connection was closed from client");
+                        Logger.LogMessage("Connection was closed from client");
                         return new byte[0];
                     }
 
-                    //Console.Out.WriteLine("End Of Message. Length:" + ms.Length);
+                    Logger.LogMessage("End Of Message. Length:" + ms.Length);
                     return ms.ToArray();
                 }
             }
             catch (Exception e)
             {
-
+                Logger.LogMessage(e);
             }
 
             return new byte[0];
@@ -121,14 +125,14 @@ namespace FiguraServer.Server.WebSockets
         //Sets up the connection, verifies JWT, all of that jazz.
         public async Task<bool> SetupConnection()
         {
-            Console.Out.WriteLine("Setup connection!");
+            Logger.LogMessage("Setup connection!");
 
             //First, grab the JWT for the client.
             byte[] jwtMessage = await GetNextMessage();
 
             if (jwtMessage.Length == 0)
             {
-                Console.Out.WriteLine("No JWT received");
+                Logger.LogMessage("No JWT received");
                 return false;
             }
 
@@ -137,14 +141,14 @@ namespace FiguraServer.Server.WebSockets
                 //Get token from string.
                 string token = GetStringFromMessage(jwtMessage);
 
-                Console.Out.WriteLine("Token is " + token);
+                Logger.LogMessage("Token is " + token);
 
                 //Verify token.
                 if (AuthenticationManager.IsTokenValid(token, out var claims))
                 {
                     //Token verified, pull user UUID from the JWT.
                     playerID = Guid.Parse(claims.First().Value);
-                    Console.Out.WriteLine("Connection verified for player " + playerID);
+                    Logger.LogMessage("Connection verified for player " + playerID);
 
                     //Get the protocol message.
                     byte[] protocolVersion = await GetNextMessage();
@@ -158,18 +162,18 @@ namespace FiguraServer.Server.WebSockets
                         int protocolValue = (int)protocolObject["protocol"];
                         handlerProtocol = allMessageHandlers[protocolValue];
 
-                        Console.Out.WriteLine("Protocol is version " + protocolValue);
+                        Logger.LogMessage("Protocol is version " + protocolValue);
                     }
                     catch
                     {
-                        Console.Out.WriteLine("Invalid Protocol Version.");
+                        Logger.LogMessage("Invalid Protocol Version.");
                         await socket.CloseAsync(WebSocketCloseStatus.PolicyViolation, "Invalid Protocol Version", CancellationToken.None);
                         return false;
                     }
                 }
                 else
                 {
-                    Console.Out.WriteLine("Invalid Token.");
+                    Logger.LogMessage("Invalid Token.");
 
                     await socket.CloseAsync(WebSocketCloseStatus.PolicyViolation, "Invalid Authentication", CancellationToken.None);
                     return false;
@@ -177,7 +181,8 @@ namespace FiguraServer.Server.WebSockets
             }
             catch (Exception e)
             {
-                Console.Out.WriteLine(e);
+                Logger.LogMessage(e);
+
                 await socket.CloseAsync(WebSocketCloseStatus.PolicyViolation, "Error During Setup", CancellationToken.None);
                 return false;
             }
@@ -190,7 +195,7 @@ namespace FiguraServer.Server.WebSockets
         {
             byte[] messageData = await GetNextMessage();
 
-            while (messageData.Length != 0 && socket.State == WebSocketState.Open)
+            while (messageData.Length != 0 && socket.CloseStatus != WebSocketCloseStatus.Empty)
             {
                 //Create memory stream and binary reader from message array
                 using (MemoryStream ms = new MemoryStream(messageData))
@@ -202,12 +207,12 @@ namespace FiguraServer.Server.WebSockets
                         //Get the handler by ID
                         if (handlerProtocol.registeredMessages.TryGetValue(handlerID, out var handler))
                         {
-                            Console.Out.WriteLine("Handling message with Handler ID:" + handlerID + " and name " + handler.GetType().Name);
+                            Logger.LogMessage("Handling message with Handler ID:" + handlerID + " and name " + handler.GetType().Name);
 
                             try
                             {
                                 await handler.HandleMessage(this, br);
-                                Console.Out.WriteLine("Handled.");
+                                Logger.LogMessage("Handled.");
                             }
                             catch (Exception e)
                             {
@@ -216,20 +221,13 @@ namespace FiguraServer.Server.WebSockets
                         }
                         else
                         {
-                            Console.Out.WriteLine("No message with Handler ID:" + handlerID);
+                            Logger.LogMessage("No message with Handler ID:" + handlerID);
                         }
                     }
-
-                    messageData = await GetNextMessage();
                 }
-            }
-        }
 
-        //Checks for a disconnect.
-        //Returns true if disconnected.
-        public bool CheckForDisconnect(WebSocketReceiveResult result)
-        {
-            return result.CloseStatus != WebSocketCloseStatus.Empty;
+                messageData = await GetNextMessage();
+            }
         }
 
         public string GetStringFromMessage(byte[] buffer)
@@ -237,11 +235,23 @@ namespace FiguraServer.Server.WebSockets
             return Encoding.UTF8.GetString(buffer, 0, buffer.Length);
         }
 
-        private Task lastSendTask = new Task(() => { });
+        private Task lastSendTask;
 
         public void SendMessage(MessageSender sender)
         {
-            lastSendTask = lastSendTask.ContinueWith(async (t) => { await sender.SendData(this); });
+            lastSendTask = lastSendTask.ContinueWith(async (t) => { await SendMessageReal(sender); });
+        }
+
+        private async Task SendMessageReal(MessageSender sender)
+        {
+            try
+            {
+                await sender.SendData(this);
+            }
+            catch (Exception e)
+            {
+                Logger.LogMessage(e);
+            }
         }
 
         private CancellationToken GetTimeoutCancelToken(int ms)

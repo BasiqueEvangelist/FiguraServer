@@ -55,9 +55,9 @@ namespace FiguraServer.Server.Auth
 
         private async Task GetNextConnection()
         {
-            Logger.LogMessage("Connection started");
             TcpClient client = await serverListener.AcceptTcpClientAsync();
 
+            Logger.LogMessage("Connection started");
             MinecraftClientConnection mcc = new MinecraftClientConnection(client);
 
             await mcc.Start();
@@ -70,6 +70,7 @@ namespace FiguraServer.Server.Auth
         //Determines if a player has joined a server that they claim they have.
         public static async Task<JoinedResponse> HasJoined(string username, string serverId)
         {
+            Logger.LogMessage($"Checking if user {username} has joined the server with the server ID ${serverId}");
             string result = $"https://sessionserver.mojang.com/session/minecraft/hasJoined?username={username}&serverId={serverId}";
             using (HttpResponseMessage response = await httpClient.GetAsync(result))
             {

@@ -34,6 +34,11 @@ namespace FiguraServer
             });
         }
 
+        public static void LogMessage(object obj)
+        {
+            LogMessage(obj.ToString());
+        }
+
         private struct LoggerMessage
         {
             public int level;

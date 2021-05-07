@@ -38,14 +38,21 @@ namespace FiguraServer.Server
         {
             try
             {
+                Logger.LogMessage("Getting avatar data with UUID " + uuid);
                 var avatars = await QueryFactory.Query("avatar_data").Select("nbt").Where("uuid", uuid.ToString("N")).GetAsync();
 
                 if (avatars.Count() == 0)
+                {
+                    Logger.LogMessage("No avatar with that UUID exists.");
                     return null;
+                }
 
+                Logger.LogMessage("Got avatar data.");
                 return avatars.First().nbt;
-            } catch (Exception e)
+            }
+            catch (Exception e)
             {
+                Logger.LogMessage(e);
                 return null;
             }
         }
@@ -54,15 +61,22 @@ namespace FiguraServer.Server
         {
             try
             {
+                Logger.LogMessage("Getting avatar Hash with UUID " + uuid);
+
                 var avatars = await QueryFactory.Query("avatar_data").Select("hash").Where("uuid", uuid.ToString("N")).GetAsync();
 
                 if (avatars.Count() == 0)
+                {
+                    Logger.LogMessage("No avatar with that UUID exists.");
                     return null;
+                }
 
+                Logger.LogMessage("Got avatar hash.");
                 return avatars.First().hash;
             }
             catch (Exception e)
             {
+                Logger.LogMessage(e);
                 return null;
             }
         }
@@ -72,15 +86,21 @@ namespace FiguraServer.Server
         {
             try
             {
+                Logger.LogMessage("Getting avatar size with UUID " + uuid);
                 var avatars = await QueryFactory.Query("avatar_data").Select("size").Where("uuid", uuid.ToString("N")).GetAsync();
 
                 if (avatars.Count() == 0)
+                {
+                    Logger.LogMessage("No avatar with that UUID exists.");
                     return -1;
+                }
 
+                Logger.LogMessage("Got avatar size.");
                 return avatars.First().size;
             }
             catch (Exception e)
             {
+                Logger.LogMessage(e);
                 return -1;
             }
         }
@@ -88,78 +108,153 @@ namespace FiguraServer.Server
         //Returns the full avatar from the UUID.
         public async Task<Avatar> GetAvatar(Guid uuid)
         {
-            var avatars = await QueryFactory.Query("avatar_data").Where("uuid", uuid.ToString("N")).GetAsync();
+            try
+            {
+                Logger.LogMessage("Getting FULL avatar with UUID " + uuid);
 
-            if(avatars.Count() == 0)
+                var avatars = await QueryFactory.Query("avatar_data").Where("uuid", uuid.ToString("N")).GetAsync();
+
+                if (avatars.Count() == 0)
+                {
+                    Logger.LogMessage("No avatar with that UUID exists.");
+                    return null;
+                }
+
+                Logger.LogMessage("Got full avatar.");
+                return new Avatar(avatars.First());
+            }
+            catch (Exception e)
+            {
+                Logger.LogMessage(e);
                 return null;
-
-            return new Avatar(avatars.First());
+            }
         }
 
         //Gets the avatar a user is currently using, by the user's UUID
         public async Task<Avatar> GetAvatarForUser(Guid userUUID)
         {
-            var userData = await QueryFactory.Query("user_data").Where("uuid", userUUID.ToString("N")).GetAsync();
-
-            if (userData.Count() == 0)
+            try
             {
+                Logger.LogMessage("Getting FULL avatar for user with UUID " + userUUID);
+
+                var userData = await QueryFactory.Query("user_data").Where("uuid", userUUID.ToString("N")).GetAsync();
+
+                if (userData.Count() == 0)
+                {
+                    Logger.LogMessage("No user with that UUID exists.");
+                    return null;
+                }
+
+                var firstResult = userData.First();
+
+                Guid id = new Guid(firstResult.current_avatar);
+
+                return await GetAvatar(id);
+            }
+            catch (Exception e)
+            {
+                Logger.LogMessage(e);
                 return null;
             }
-
-            var firstResult = userData.First();
-
-            return await GetAvatar(firstResult.current_avatar);
         }
 
         //Gets the avatar a user is currently using, by the user's UUID
         public async Task<byte[]> GetAvatarDataForUser(Guid userUUID)
         {
-            var userData = await QueryFactory.Query("user_data").Where("uuid", userUUID.ToString("N")).GetAsync();
-
-            if (userData.Count() == 0)
+            try
             {
+                Logger.LogMessage("Getting avatar data for user with UUID " + userUUID);
+                var userData = await QueryFactory.Query("user_data").Where("uuid", userUUID.ToString("N")).GetAsync();
+
+                if (userData.Count() == 0)
+                {
+                    Logger.LogMessage("No user with that UUID exists.");
+                    return null;
+                }
+
+                var firstResult = userData.First();
+
+                Guid id = new Guid(firstResult.current_avatar);
+
+                return await GetAvatarData(id);
+            }
+            catch (Exception e)
+            {
+                Logger.LogMessage(e);
                 return null;
             }
-
-            var firstResult = userData.First();
-
-            Guid id = new Guid(firstResult.current_avatar);
-
-            return await GetAvatarData(id);
         }
 
         //Gets the avatar a user is currently using, by the user's UUID
         public async Task<string> GetAvatarHashForUser(Guid userUUID)
         {
-            var userData = await QueryFactory.Query("user_data").Where("uuid", userUUID.ToString("N")).GetAsync();
-
-            if (userData.Count() == 0)
+            try
             {
+                Logger.LogMessage("Getting avatar hash for user with UUID " + userUUID);
+
+                var userData = await QueryFactory.Query("user_data").Where("uuid", userUUID.ToString("N")).GetAsync();
+
+                if (userData.Count() == 0)
+                {
+                    Logger.LogMessage("No user with that UUID exists.");
+                    return null;
+                }
+
+                var firstResult = userData.First();
+
+                Guid id = new Guid(firstResult.current_avatar);
+
+                return await GetAvatarHash(id);
+            }
+            catch (Exception e)
+            {
+                Logger.LogMessage(e);
                 return null;
             }
-
-            var firstResult = userData.First();
-
-            Guid id = new Guid(firstResult.current_avatar);
-
-            return await GetAvatarHash(id);
         }
 
         //Posts an avatar to the database
         public async Task<int> PostAvatar(Avatar avatar)
         {
-            return await QueryFactory.Query("avatar_data").InsertAsync(avatar.GetData());
+            try
+            {
+                Logger.LogMessage("Posting avatar with UUID " + avatar.id);
+
+                return await QueryFactory.Query("avatar_data").InsertAsync(avatar.GetData());
+            }
+            catch (Exception e)
+            {
+                Logger.LogMessage(e);
+                return -1;
+            }
         }
 
         public async Task<int> UpdateAvatar(Guid uuid, Dictionary<string, object> toUpdate)
         {
-            return await QueryFactory.Query("avatar_data").Where("uuid", uuid.ToString("N")).UpdateAsync(toUpdate, timeout: 1000);
+            try
+            {
+                Logger.LogMessage("Updating avatar with UUID " + uuid);
+
+                return await QueryFactory.Query("avatar_data").Where("uuid", uuid.ToString("N")).UpdateAsync(toUpdate, timeout: 1000);
+            }
+            catch (Exception e)
+            {
+                Logger.LogMessage(e);
+                return -1;
+            }
         }
 
         public async Task DeleteAvatar(Guid uuid)
         {
-            Console.Out.WriteLine("Deleting avatar with UUID " + uuid);
-            await QueryFactory.Query("avatar_data").Where("uuid", uuid.ToString("N")).DeleteAsync(timeout: 1000);
+            try
+            {
+                Logger.LogMessage("Deleting avatar with UUID " + uuid);
+                await QueryFactory.Query("avatar_data").Where("uuid", uuid.ToString("N")).DeleteAsync(timeout: 1000);
+            }
+            catch (Exception e)
+            {
+                Logger.LogMessage(e);
+            }
         }
         #endregion
 
@@ -169,24 +264,48 @@ namespace FiguraServer.Server
         //If no user exists, creates one.
         public async Task<User> GetOrCreateUser(Guid uuid)
         {
-            var users = await QueryFactory.Query("user_data").Where("uuid", uuid.ToString("N")).GetAsync();
-
-            //If no user exists, create one.
-            if(users.Count() == 0)
+            try
             {
-                User newUser = new User(uuid);
-                await QueryFactory.Query("user_data").InsertAsync(newUser.GetData());
+                Logger.LogMessage("Getting or creating user with UUID " + uuid);
 
-                return newUser;
+                var users = await QueryFactory.Query("user_data").Where("uuid", uuid.ToString("N")).GetAsync();
+
+                //If no user exists, create one.
+                if (users.Count() == 0)
+                {
+                    Logger.LogMessage("No user found, creating... ");
+
+                    User newUser = new User(uuid);
+                    await QueryFactory.Query("user_data").InsertAsync(newUser.GetData());
+
+                    return newUser;
+                }
+
+                Logger.LogMessage("Created user.");
+
+                //Return first user.
+                return new User(users.First());
             }
-
-            //Return first user.
-            return new User(users.First());
+            catch (Exception e)
+            {
+                Logger.LogMessage(e);
+                return null;
+            }
         }
 
         public async Task<int> UpdateUser(Guid uuid, Dictionary<string, object> toUpdate)
         {
-            return await QueryFactory.Query("user_data").Where("uuid", uuid.ToString("N")).UpdateAsync(toUpdate, timeout: 1000);
+            try
+            {
+                Logger.LogMessage("Updating user with UUID " + uuid);
+
+                return await QueryFactory.Query("user_data").Where("uuid", uuid.ToString("N")).UpdateAsync(toUpdate, timeout: 1000);
+            }
+            catch (Exception e)
+            {
+                Logger.LogMessage(e);
+                return -1;
+            }
         }
 
         #endregion
@@ -196,14 +315,22 @@ namespace FiguraServer.Server
 
         public async Task<Pack> GetPack(Guid uuid)
         {
-            var users = await QueryFactory.Query("pack_data").Where("uuid", uuid.ToString("N")).GetAsync();
-
-            if (users.Count() == 0)
+            try
             {
+                var users = await QueryFactory.Query("pack_data").Where("uuid", uuid.ToString("N")).GetAsync();
+
+                if (users.Count() == 0)
+                {
+                    return null;
+                }
+
+                return new Pack(users.First());
+            }
+            catch (Exception e)
+            {
+                Logger.LogMessage(e);
                 return null;
             }
-
-            return new Pack(users.First());
         }
 
         #endregion
