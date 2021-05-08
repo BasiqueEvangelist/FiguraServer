@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Encodings;
@@ -29,7 +30,14 @@ namespace FiguraServer.Server.Auth
 
         private TcpListener serverListener;
 
+        private readonly FiguraAuthServer.Config config;
+
         public static bool isRunning = false;
+
+        public FiguraAuthServer(IOptions<FiguraAuthServer.Config> config)
+        {
+            this.config = config.Value;
+        }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
@@ -58,7 +66,7 @@ namespace FiguraServer.Server.Auth
             TcpClient client = await serverListener.AcceptTcpClientAsync();
 
             Logger.LogMessage("Connection started");
-            MinecraftClientConnection mcc = new MinecraftClientConnection(client);
+            MinecraftClientConnection mcc = new MinecraftClientConnection(client, config);
 
             await mcc.Start();
         }
@@ -107,5 +115,10 @@ namespace FiguraServer.Server.Auth
             public string Signature { get; set; }
         }
         #endregion
+
+        public class Config
+        {
+            public bool OfflineMode { get; set; }
+        }
     }
 }

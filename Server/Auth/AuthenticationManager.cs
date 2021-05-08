@@ -9,6 +9,7 @@ using System.Security.Cryptography;
 using System.Net;
 using System.IO;
 using Newtonsoft.Json.Linq;
+using System.Text;
 
 namespace FiguraServer.Server.Auth
 {
@@ -72,14 +73,24 @@ namespace FiguraServer.Server.Auth
             }
         }
 
-        public static async Task<string> GenerateToken(string playerName)
+        public static async Task<string> GenerateToken(string playerName, bool generateUuid)
         {
-            string playerResponse = await Get(string.Format("https://api.mojang.com/users/profiles/minecraft/{0}", playerName));
-            JObject obj = JObject.Parse(playerResponse);
-
-            if (obj.ContainsKey("error"))
+            string uuid;
+            if (generateUuid)
             {
-                return "";
+                uuid = GuidUtility.CreateOfflineUuid(Encoding.UTF8.GetBytes("OfflinePlayer:" + playerName)).ToString();
+            }
+            else
+            {
+                string playerResponse = await Get(string.Format("https://api.mojang.com/users/profiles/minecraft/{0}", playerName));
+                JObject obj = JObject.Parse(playerResponse);
+
+                if (obj.ContainsKey("error"))
+                {
+                    return "";
+                }
+
+                uuid = (string)obj["id"];
             }
 
             TimeSpan t = DateTime.UtcNow - new DateTime(1970, 1, 1);
@@ -88,7 +99,7 @@ namespace FiguraServer.Server.Auth
             //All the claims that should be shoved into the JWT
             Claim[] claims = new Claim[]
             {
-                new Claim(JwtRegisteredClaimNames.Sub, (string)obj["id"]), //Subject - Username of the player who this JWT is issued to.
+                new Claim(JwtRegisteredClaimNames.Sub, uuid), //Subject - Username of the player who this JWT is issued to.
                 new Claim(JwtRegisteredClaimNames.Iss, TOKEN_ISSUER), //Issuer - This server!
                 new Claim(JwtRegisteredClaimNames.Iat, secondsSinceEpoch.ToString()), //Issued date
                 new Claim(JwtRegisteredClaimNames.Exp, (secondsSinceEpoch + (60 * 30)).ToString()), //Expiration date - 30 mins from the time of creation
