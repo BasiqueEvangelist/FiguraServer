@@ -11,7 +11,7 @@ namespace FiguraServer.Server.WebSockets.Messages.Avatars
     {
         private byte[] responseData;
 
-        public AvatarProvideResponse(byte[] responseData) : base(MessageIDs.AVATAR_PROVIDE_RESPONSE_ID)
+        public AvatarProvideResponse(byte[] responseData)
         {
             this.responseData = responseData;
         }
@@ -24,5 +24,6 @@ namespace FiguraServer.Server.WebSockets.Messages.Avatars
             writer.Write(responseData);
         }
 
+        public override string ProtocolName => "figura_v1:avatar_provide";
     }
 }

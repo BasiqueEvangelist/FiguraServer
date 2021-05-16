@@ -8,12 +8,14 @@ using System.Threading.Tasks;
 
 namespace FiguraServer.Server.WebSockets.Messages
 {
-    public class MessageHandler
+    public abstract class MessageHandler
     {
         public virtual async Task<string> HandleMessage(WebSocketConnection connection, BinaryReader reader)
         {
             return string.Empty;
         }
+
+        public abstract string ProtocolName { get; }
 
         public static Guid ReadMinecraftUUIDFromBinaryReader(BinaryReader br)
         {

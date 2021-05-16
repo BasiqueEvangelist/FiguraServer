@@ -32,5 +32,6 @@ namespace FiguraServer.Server.WebSockets.Messages.Users
             return String.Empty;
         }
 
+        public override string ProtocolName => "figura_v1:user_get_current_avatar";
     }
 }

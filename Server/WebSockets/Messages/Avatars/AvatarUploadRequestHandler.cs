@@ -57,5 +57,7 @@ namespace FiguraServer.Server.WebSockets.Messages.Avatars
         {
             connection.SendMessage(new AvatarUploadResponse(3));
         }
+
+        public override string ProtocolName => "figura_v1:avatar_upload";
     }
 }
