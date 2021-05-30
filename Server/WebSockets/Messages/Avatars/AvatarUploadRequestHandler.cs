@@ -11,6 +11,8 @@ namespace FiguraServer.Server.WebSockets.Messages.Avatars
 
         public async override Task<string> HandleMessage(WebSocketConnection connection, BinaryReader reader)
         {
+            if (connection.connectionUser == null) return "";
+
             int avatarLength = reader.ReadInt32();
 
             (sbyte retCode, Guid avatarID) = await connection.connectionUser.TryAddAvatar(reader.ReadBytes(avatarLength));

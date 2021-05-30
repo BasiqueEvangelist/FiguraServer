@@ -48,15 +48,18 @@ namespace FiguraServer.Server.WebSockets
         {
             bool success = await SetupConnection();
 
-            //Retreive player for this.
-            using (DatabaseAccessor accessor = new DatabaseAccessor())
-                connectionUser = await accessor.GetOrCreateUser(playerID);
-
             if (socket.State != WebSocketState.Open || success == false)
                 return;
             await MessageLoop();
 
             Logger.LogMessage("Closed connection!");
+        }
+
+        public async Task SetUser(Guid id)
+        {
+            playerID = id;
+            using DatabaseAccessor accessor = new();
+            connectionUser = await accessor.GetOrCreateUser(playerID);
         }
 
         public async Task<byte[]> GetNextMessage()
@@ -127,55 +130,26 @@ namespace FiguraServer.Server.WebSockets
         {
             Logger.LogMessage("Setup connection!");
 
-            //First, grab the JWT for the client.
-            byte[] jwtMessage = await GetNextMessage();
-
-            if (jwtMessage.Length == 0)
-            {
-                Logger.LogMessage("No JWT received");
-                return false;
-            }
-
             try
             {
-                //Get token from string.
-                string token = GetStringFromMessage(jwtMessage);
+                //Get the protocol message.
+                byte[] protocolVersion = await GetNextMessage();
 
-                Logger.LogMessage("Token is " + token);
+                //Parse a JSON Object from the protocol message.
+                JObject protocolObject = JObject.Parse(GetStringFromMessage(protocolVersion));
 
-                //Verify token.
-                if (AuthenticationManager.IsTokenValid(token, out var claims))
+                try
                 {
-                    //Token verified, pull user UUID from the JWT.
-                    playerID = Guid.Parse(claims.First().Value);
-                    Logger.LogMessage("Connection verified for player " + playerID);
+                    //Set protocol and get the message handler for it.
+                    int protocolValue = (int)protocolObject["protocol"];
+                    handlerProtocol = allMessageHandlers[protocolValue];
 
-                    //Get the protocol message.
-                    byte[] protocolVersion = await GetNextMessage();
-
-                    //Parse a JSON Object from the protocol message.
-                    JObject protocolObject = JObject.Parse(GetStringFromMessage(protocolVersion));
-
-                    try
-                    {
-                        //Set protocol and get the message handler for it.
-                        int protocolValue = (int)protocolObject["protocol"];
-                        handlerProtocol = allMessageHandlers[protocolValue];
-
-                        Logger.LogMessage("Protocol is version " + protocolValue);
-                    }
-                    catch
-                    {
-                        Logger.LogMessage("Invalid Protocol Version.");
-                        await socket.CloseAsync(WebSocketCloseStatus.PolicyViolation, "Invalid Protocol Version", CancellationToken.None);
-                        return false;
-                    }
+                    Logger.LogMessage("Protocol is version " + protocolValue);
                 }
-                else
+                catch
                 {
-                    Logger.LogMessage("Invalid Token.");
-
-                    await socket.CloseAsync(WebSocketCloseStatus.PolicyViolation, "Invalid Authentication", CancellationToken.None);
+                    Logger.LogMessage("Invalid Protocol Version.");
+                    await socket.CloseAsync(WebSocketCloseStatus.PolicyViolation, "Invalid Protocol Version", CancellationToken.None);
                     return false;
                 }
             }

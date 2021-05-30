@@ -34,6 +34,8 @@ namespace FiguraServer.Server.WebSockets.Messages
 
         #endregion
 
+        public const sbyte AUTHENTICATE_REQUEST_HANDLER_ID = sbyte.MinValue + 60;
+
         #endregion //SENDERS
 
         //--------------------SENDERS--------------------
@@ -53,6 +55,8 @@ namespace FiguraServer.Server.WebSockets.Messages
         public const sbyte USER_AVATAR_HASH_PROVIDE_RESPONSE_ID = sbyte.MinValue + 21;
 
         #endregion //USERS
+
+        public const sbyte AUTHENTICATE_RESPONSE_ID = sbyte.MinValue + 40;
 
         #endregion //SENDERS
     }

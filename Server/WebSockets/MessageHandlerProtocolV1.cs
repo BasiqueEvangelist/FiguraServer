@@ -22,6 +22,7 @@ namespace FiguraServer.Server.WebSockets
             registeredMessages[MessageIDs.USER_DELETE_CURRENT_AVATAR_REQUEST_HANDLER_ID] = new UserDeleteCurrentAvatarRequestHandler();
             registeredMessages[MessageIDs.USER_GET_CURRENT_AVATAR_REQUEST_HANDLER_ID] = new UserGetCurrentAvatarRequestHandler();
             registeredMessages[MessageIDs.USER_GET_CURRENT_AVATAR_HASH_REQUEST_HANDLER_ID] = new UserGetCurrentAvatarHashRequestHandler();
+            registeredMessages[MessageIDs.AUTHENTICATE_REQUEST_HANDLER_ID] = new AuthenticateRequestHandler();
         }
     }
 }
