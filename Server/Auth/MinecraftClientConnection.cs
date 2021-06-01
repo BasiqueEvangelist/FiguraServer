@@ -87,13 +87,15 @@ namespace FiguraServer.Server.Auth
         public byte[] randomToken;
         public byte[] sharedKey;
         public byte[] secret;
+        public readonly FiguraAuthServer.Config config;
 
         public bool enableEncryption;
 
-        public MinecraftClientConnection(TcpClient client)
+        public MinecraftClientConnection(TcpClient client, FiguraAuthServer.Config config)
         {
             this.client = client;
             stream = client.GetStream();
+            this.config = config;
         }
 
 
@@ -254,6 +256,15 @@ namespace FiguraServer.Server.Auth
             //Grab username.
             connection.connectingUsername = await ReadStringAsync(stream);
 
+            if (connection.config.OfflineMode)
+            {
+                connection.WriteString(GetKickMessage(await AuthenticationManager.GenerateToken(connection.connectingUsername, true)));
+                connection.Flush(0);
+
+                connection.client.Close();
+                return;
+            }
+
             //Generate encryption data needed for connection.
             connection.encryptionState = new FakeServerEncryptionState();
             connection.encryptionState.GenerateKeyPair();
@@ -305,7 +316,7 @@ namespace FiguraServer.Server.Auth
             //Verify the player has joined the server they say they have, using Mojang's auth.
             FiguraAuthServer.JoinedResponse hasJoinedResponse = await FiguraAuthServer.HasJoined(connection.connectingUsername, serverID);
 
-            if(hasJoinedResponse == null)
+            if (hasJoinedResponse == null)
             {
                 //Player hasn't actually joined this server, auth failed, close connection.
                 connection.isRunning = false;
@@ -319,7 +330,7 @@ namespace FiguraServer.Server.Auth
             connection.enableEncryption = true;
 
             //Respond with JWT in kick message.
-            connection.WriteString(GetKickMessage(await AuthenticationManager.GenerateToken(connection.connectingUsername)));
+            connection.WriteString(GetKickMessage(await AuthenticationManager.GenerateToken(connection.connectingUsername, false)));
             connection.Flush(0);
 
             connection.client.Close();
@@ -666,7 +677,7 @@ namespace FiguraServer.Server.Auth
         public class FakeServerEncryptionState
         {
             //Keypair generator for the server
-            public  RsaKeyPairGenerator provider;
+            public RsaKeyPairGenerator provider;
 
             //Ciphers for encryption
             public IAsymmetricBlockCipher encryptCipher;
@@ -678,7 +689,7 @@ namespace FiguraServer.Server.Auth
             public byte[] verifyToken { get; set; }
             public byte[] publicKey { get; set; }
 
-            public  (byte[] publicKey, byte[] randomToken) GeneratePublicKeyAndToken()
+            public (byte[] publicKey, byte[] randomToken) GeneratePublicKeyAndToken()
             {
                 var randomToken = new byte[4];
                 using var provider = new RNGCryptoServiceProvider();
@@ -690,7 +701,7 @@ namespace FiguraServer.Server.Auth
                 return (publicKey, verifyToken);
             }
 
-            public  AsymmetricCipherKeyPair GenerateKeyPair()
+            public AsymmetricCipherKeyPair GenerateKeyPair()
             {
                 if (provider is null)
                 {
@@ -714,10 +725,10 @@ namespace FiguraServer.Server.Auth
                 return keyPair;
             }
 
-            public  byte[] Decrypt(byte[] toDecrypt) => decryptCipher.ProcessBlock(toDecrypt, 0, toDecrypt.Length);
-            public  byte[] Encrypt(byte[] toEncrypt) => encryptCipher.ProcessBlock(toEncrypt, 0, toEncrypt.Length);
+            public byte[] Decrypt(byte[] toDecrypt) => decryptCipher.ProcessBlock(toDecrypt, 0, toDecrypt.Length);
+            public byte[] Encrypt(byte[] toEncrypt) => encryptCipher.ProcessBlock(toEncrypt, 0, toEncrypt.Length);
 
-            public  byte[] Encrypt(byte[] data, byte[] key)
+            public byte[] Encrypt(byte[] data, byte[] key)
             {
                 var keyParam = ParameterUtilities.CreateKeyParameter("AES", key);
                 var parametersWithIv = new ParametersWithIV(keyParam, key);

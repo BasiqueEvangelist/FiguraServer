@@ -36,6 +36,7 @@ namespace FiguraServer
             string connection = System.IO.File.ReadAllText("sqlconnection.txt");
             #endregion
 
+            services.Configure<FiguraAuthServer.Config>(Configuration.GetSection("FiguraAuthServer"));
             services.AddControllers();
             services.AddSwaggerGen(c =>
             {
