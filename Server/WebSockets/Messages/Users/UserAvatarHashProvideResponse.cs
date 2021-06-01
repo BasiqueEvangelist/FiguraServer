@@ -12,7 +12,7 @@ namespace FiguraServer.Server.WebSockets.Messages.Users
         public Guid userUUID;
         public byte[] hash;
 
-        public UserAvatarHashProvideResponse(Guid id, byte[] hash) : base(MessageIDs.USER_AVATAR_HASH_PROVIDE_RESPONSE_ID)
+        public UserAvatarHashProvideResponse(Guid id, byte[] hash)
         {
             this.userUUID = id;
             this.hash = hash;
@@ -27,5 +27,6 @@ namespace FiguraServer.Server.WebSockets.Messages.Users
             writer.Write(hash);
         }
 
+        public override string ProtocolName => "figura_v1:user_avatar_hash_provide";
     }
 }

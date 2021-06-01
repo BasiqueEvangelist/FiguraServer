@@ -23,5 +23,6 @@ namespace FiguraServer.Server.WebSockets.Messages.Users
             return string.Empty;
         }
 
+        public override string ProtocolName => "figura_v1:user_set_avatar";
     }
 }

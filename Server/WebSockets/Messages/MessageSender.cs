@@ -8,15 +8,9 @@ using System.Threading.Tasks;
 
 namespace FiguraServer.Server.WebSockets.Messages
 {
-    public class MessageSender
+    public abstract class MessageSender
     {
-        public sbyte messageID;
-
-        public MessageSender(sbyte ID)
-        {
-            messageID = ID;
-        }
-
+        public abstract string ProtocolName { get; }
 
         public virtual async Task SendData(WebSocketConnection connection)
         {
@@ -25,7 +19,7 @@ namespace FiguraServer.Server.WebSockets.Messages
             {
                 using (BinaryWriter bw = new BinaryWriter(ms, Encoding.UTF8))
                 {
-                    bw.Write(messageID);
+                    bw.Write(connection.Registry.GetMessageId(ProtocolName));
 
                     await Write(bw);
 

@@ -45,5 +45,6 @@ namespace FiguraServer.Server.WebSockets.Messages.Avatars
             return "N/A";
         }
 
+        public override string ProtocolName => "figura_v1:avatar_request";
     }
 }
