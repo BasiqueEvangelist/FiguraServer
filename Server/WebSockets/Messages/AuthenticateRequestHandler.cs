@@ -9,6 +9,8 @@ namespace FiguraServer.Server.WebSockets.Messages
 {
     public class AuthenticateRequestHandler : MessageHandler
     {
+        public override string ProtocolName => "figura_v1:authenticate";
+
         public override async Task<string> HandleMessage(WebSocketConnection connection, BinaryReader reader)
         {
             string token = Encoding.UTF8.GetString(reader.ReadBytes(reader.ReadInt32()));

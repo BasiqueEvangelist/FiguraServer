@@ -1,6 +1,8 @@
 ﻿using FiguraServer.Data;
 using FiguraServer.Server.Auth;
 using FiguraServer.Server.WebSockets.Messages;
+using FiguraServer.Server.WebSockets.Messages.Avatars;
+using FiguraServer.Server.WebSockets.Messages.Users;
 using Microsoft.AspNetCore.SignalR;
 using Newtonsoft.Json.Linq;
 using System;
@@ -20,9 +22,15 @@ namespace FiguraServer.Server.WebSockets
 
     public class WebSocketConnection
     {
-        private static Dictionary<int, MessageHandlerProtocol> allMessageHandlers = new Dictionary<int, MessageHandlerProtocol>()
+        private readonly static List<MessageHandler> messageHandlers = new List<MessageHandler>()
         {
-            { 0, new MessageHandlerProtocolV1() },
+            new AvatarRequestHandler(),
+            new AvatarUploadRequestHandler(),
+            new UserSetAvatarRequestHandler(),
+            new UserDeleteCurrentAvatarRequestHandler(),
+            new UserGetCurrentAvatarRequestHandler(),
+            new UserGetCurrentAvatarHashRequestHandler(),
+            new AuthenticateRequestHandler(),
         };
 
         private static ConcurrentQueue<byte[]> messageHeaderPool = new ConcurrentQueue<byte[]>();
@@ -30,9 +38,8 @@ namespace FiguraServer.Server.WebSockets
 
         public WebSocket socket;
         public Guid playerID;
+        public MessageRegistry Registry = new();
 
-
-        private MessageHandlerProtocol handlerProtocol = null;
 
         //The User object for this connection. We keep this around because it might be modified, a lot.
         public User connectionUser = null;
@@ -132,26 +139,13 @@ namespace FiguraServer.Server.WebSockets
 
             try
             {
-                //Get the protocol message.
-                byte[] protocolVersion = await GetNextMessage();
+                //Get the client registry message.
+                byte[] registryMessage = await GetNextMessage();
+                using var ms = new MemoryStream(registryMessage);
+                using var br = new BinaryReader(ms, Encoding.UTF8);
+                Registry.ReadRegistryMessage(br);
 
-                //Parse a JSON Object from the protocol message.
-                JObject protocolObject = JObject.Parse(GetStringFromMessage(protocolVersion));
-
-                try
-                {
-                    //Set protocol and get the message handler for it.
-                    int protocolValue = (int)protocolObject["protocol"];
-                    handlerProtocol = allMessageHandlers[protocolValue];
-
-                    Logger.LogMessage("Protocol is version " + protocolValue);
-                }
-                catch
-                {
-                    Logger.LogMessage("Invalid Protocol Version.");
-                    await socket.CloseAsync(WebSocketCloseStatus.PolicyViolation, "Invalid Protocol Version", CancellationToken.None);
-                    return false;
-                }
+                await SendServerRegistry();
             }
             catch (Exception e)
             {
@@ -162,6 +156,22 @@ namespace FiguraServer.Server.WebSockets
             }
 
             return true;
+        }
+
+        public Task SendServerRegistry()
+        {
+            using var ms = new MemoryStream();
+            using var bw = new BinaryWriter(ms, Encoding.UTF8);
+
+            bw.Write(messageHandlers.Count);
+            foreach (MessageHandler handler in messageHandlers)
+            {
+                byte[] data = Encoding.UTF8.GetBytes(handler.ProtocolName);
+                bw.Write(data.Length);
+                bw.Write(data);
+            }
+
+            return socket.SendAsync(new ArraySegment<byte>(ms.ToArray()), WebSocketMessageType.Binary, true, CancellationToken.None);
         }
 
         //Receives and processes messages.
@@ -176,12 +186,13 @@ namespace FiguraServer.Server.WebSockets
                 {
                     using (BinaryReader br = new BinaryReader(ms, Encoding.UTF8))
                     {
-                        sbyte handlerID = br.ReadSByte();
+                        int handlerID = br.ReadSByte() - sbyte.MinValue - 1;
 
                         //Get the handler by ID
-                        if (handlerProtocol.registeredMessages.TryGetValue(handlerID, out var handler))
+                        if (messageHandlers.Count > handlerID)
                         {
-                            Logger.LogMessage("Handling message with Handler ID:" + handlerID + " and name " + handler.GetType().Name);
+                            MessageHandler handler = messageHandlers[handlerID];
+                            Logger.LogMessage("Handling message with Handler ID:" + handlerID + " and protocol name " + handler.ProtocolName);
 
                             try
                             {

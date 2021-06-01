@@ -13,13 +13,13 @@ namespace FiguraServer.Server.WebSockets.Messages.Avatars
         public Guid uuid = Guid.Empty;
 
         //Creates an upload response with a valid avatar.
-        public AvatarUploadResponse(Guid uuid) : base(MessageIDs.AVATAR_UPLOAD_RESPONSE_ID)
+        public AvatarUploadResponse(Guid uuid)
         {
             this.uuid = uuid;
         }
 
         //Creates a response that has an error return code
-        public AvatarUploadResponse(sbyte retCode) : base(MessageIDs.AVATAR_UPLOAD_RESPONSE_ID)
+        public AvatarUploadResponse(sbyte retCode)
         {
             this.retCode = retCode;
         }
@@ -34,5 +34,7 @@ namespace FiguraServer.Server.WebSockets.Messages.Avatars
             if (retCode == 0) //Write the 16 byes for the UUID, if we suceeded
                 WriteMinecraftUUIDToBinaryWriter(uuid, writer);
         }
+
+        public override string ProtocolName => "figura_v1:avatar_upload";
     }
 }

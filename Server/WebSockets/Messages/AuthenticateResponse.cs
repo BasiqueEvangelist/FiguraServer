@@ -8,10 +8,12 @@ namespace FiguraServer.Server.WebSockets.Messages
     {
         private readonly Guid playerId;
 
-        public AuthenticateResponse(Guid playerId) : base(MessageIDs.AUTHENTICATE_RESPONSE_ID)
+        public AuthenticateResponse(Guid playerId)
         {
             this.playerId = playerId;
         }
+
+        public override string ProtocolName => "figura_v1:authenticate";
 
         public override async Task Write(BinaryWriter writer)
         {

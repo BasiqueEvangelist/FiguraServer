@@ -7,9 +7,11 @@ namespace FiguraServer.Server.WebSockets.Messages.Avatars
 {
     public class DeleteAvatarResponse : MessageSender
     {
-        public DeleteAvatarResponse() : base(MessageIDs.AVATAR_DELETE_RESPONSE_ID)
+        public DeleteAvatarResponse()
         {
 
         }
+
+        public override string ProtocolName => "figura_v1:delete_avatar";
     }
 }

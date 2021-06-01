@@ -39,16 +39,16 @@ namespace FiguraServer.Server
             try
             {
                 Logger.LogMessage("Getting avatar data with UUID " + uuid);
-                var avatars = await QueryFactory.Query("avatar_data").Select("nbt").Where("uuid", uuid.ToString("N")).GetAsync();
+                var avatar = await QueryFactory.Query("avatar_data").Select("nbt").Where("uuid", uuid.ToString("N")).FirstOrDefaultAsync();
 
-                if (avatars.Count() == 0)
+                if (avatar == null)
                 {
                     Logger.LogMessage("No avatar with that UUID exists.");
                     return null;
                 }
 
                 Logger.LogMessage("Got avatar data.");
-                return avatars.First().nbt;
+                return avatar.nbt;
             }
             catch (Exception e)
             {
@@ -63,16 +63,16 @@ namespace FiguraServer.Server
             {
                 Logger.LogMessage("Getting avatar Hash with UUID " + uuid);
 
-                var avatars = await QueryFactory.Query("avatar_data").Select("hash").Where("uuid", uuid.ToString("N")).GetAsync();
+                var avatar = await QueryFactory.Query("avatar_data").Select("hash").Where("uuid", uuid.ToString("N")).FirstOrDefaultAsync();
 
-                if (avatars.Count() == 0)
+                if (avatar == null)
                 {
                     Logger.LogMessage("No avatar with that UUID exists.");
                     return null;
                 }
 
                 Logger.LogMessage("Got avatar hash.");
-                return avatars.First().hash;
+                return avatar.hash;
             }
             catch (Exception e)
             {
@@ -87,16 +87,16 @@ namespace FiguraServer.Server
             try
             {
                 Logger.LogMessage("Getting avatar size with UUID " + uuid);
-                var avatars = await QueryFactory.Query("avatar_data").Select("size").Where("uuid", uuid.ToString("N")).GetAsync();
+                var avatar = await QueryFactory.Query("avatar_data").Select("size").Where("uuid", uuid.ToString("N")).FirstOrDefaultAsync();
 
-                if (avatars.Count() == 0)
+                if (avatar == null)
                 {
                     Logger.LogMessage("No avatar with that UUID exists.");
                     return -1;
                 }
 
                 Logger.LogMessage("Got avatar size.");
-                return avatars.First().size;
+                return avatar.size;
             }
             catch (Exception e)
             {
@@ -112,16 +112,16 @@ namespace FiguraServer.Server
             {
                 Logger.LogMessage("Getting FULL avatar with UUID " + uuid);
 
-                var avatars = await QueryFactory.Query("avatar_data").Where("uuid", uuid.ToString("N")).GetAsync();
+                var avatar = await QueryFactory.Query("avatar_data").Where("uuid", uuid.ToString("N")).FirstOrDefaultAsync();
 
-                if (avatars.Count() == 0)
+                if (avatar == null)
                 {
                     Logger.LogMessage("No avatar with that UUID exists.");
                     return null;
                 }
 
                 Logger.LogMessage("Got full avatar.");
-                return new Avatar(avatars.First());
+                return new Avatar(avatar);
             }
             catch (Exception e)
             {
@@ -137,19 +137,20 @@ namespace FiguraServer.Server
             {
                 Logger.LogMessage("Getting FULL avatar for user with UUID " + userUUID);
 
-                var userData = await QueryFactory.Query("user_data").Where("uuid", userUUID.ToString("N")).GetAsync();
+                var avatar = await QueryFactory
+                    .Query("user_data")
+                    .Where("user_data.uuid", userUUID.ToString("N"))
+                    .Join("avatar_data", "avatar_data.uuid", "user_data.current_avatar")
+                    .Select("avatar_data.*")
+                    .FirstOrDefaultAsync();
 
-                if (userData.Count() == 0)
+                if (avatar == null)
                 {
                     Logger.LogMessage("No user with that UUID exists.");
                     return null;
                 }
 
-                var firstResult = userData.First();
-
-                Guid id = new Guid(firstResult.current_avatar);
-
-                return await GetAvatar(id);
+                return new Avatar(avatar);
             }
             catch (Exception e)
             {
@@ -164,19 +165,20 @@ namespace FiguraServer.Server
             try
             {
                 Logger.LogMessage("Getting avatar data for user with UUID " + userUUID);
-                var userData = await QueryFactory.Query("user_data").Where("uuid", userUUID.ToString("N")).GetAsync();
+                var avatar = await QueryFactory
+                    .Query("user_data")
+                    .Where("user_data.uuid", userUUID.ToString("N"))
+                    .Join("avatar_data", "avatar_data.uuid", "user_data.current_avatar")
+                    .Select("avatar_data.nbt")
+                    .FirstOrDefaultAsync();
 
-                if (userData.Count() == 0)
+                if (avatar == null)
                 {
                     Logger.LogMessage("No user with that UUID exists.");
                     return null;
                 }
 
-                var firstResult = userData.First();
-
-                Guid id = new Guid(firstResult.current_avatar);
-
-                return await GetAvatarData(id);
+                return avatar.nbt;
             }
             catch (Exception e)
             {
@@ -192,19 +194,20 @@ namespace FiguraServer.Server
             {
                 Logger.LogMessage("Getting avatar hash for user with UUID " + userUUID);
 
-                var userData = await QueryFactory.Query("user_data").Where("uuid", userUUID.ToString("N")).GetAsync();
+                var avatar = await QueryFactory
+                    .Query("user_data")
+                    .Where("user_data.uuid", userUUID.ToString("N"))
+                    .Join("avatar_data", "avatar_data.uuid", "user_data.current_avatar")
+                    .Select("avatar_data.hash")
+                    .FirstOrDefaultAsync();
 
-                if (userData.Count() == 0)
+                if (avatar == null)
                 {
                     Logger.LogMessage("No user with that UUID exists.");
                     return null;
                 }
 
-                var firstResult = userData.First();
-
-                Guid id = new Guid(firstResult.current_avatar);
-
-                return await GetAvatarHash(id);
+                return avatar.hash;
             }
             catch (Exception e)
             {
@@ -268,10 +271,10 @@ namespace FiguraServer.Server
             {
                 Logger.LogMessage("Getting or creating user with UUID " + uuid);
 
-                var users = await QueryFactory.Query("user_data").Where("uuid", uuid.ToString("N")).GetAsync();
+                var user = await QueryFactory.Query("user_data").Where("uuid", uuid.ToString("N")).FirstOrDefaultAsync();
 
                 //If no user exists, create one.
-                if (users.Count() == 0)
+                if (user == null)
                 {
                     Logger.LogMessage("No user found, creating... ");
 
@@ -284,7 +287,7 @@ namespace FiguraServer.Server
                 Logger.LogMessage("Created user.");
 
                 //Return first user.
-                return new User(users.First());
+                return new User(user);
             }
             catch (Exception e)
             {
@@ -317,14 +320,14 @@ namespace FiguraServer.Server
         {
             try
             {
-                var users = await QueryFactory.Query("pack_data").Where("uuid", uuid.ToString("N")).GetAsync();
+                var user = await QueryFactory.Query("pack_data").Where("uuid", uuid.ToString("N")).FirstOrDefaultAsync();
 
-                if (users.Count() == 0)
+                if (user == null)
                 {
                     return null;
                 }
 
-                return new Pack(users.First());
+                return new Pack(user);
             }
             catch (Exception e)
             {

@@ -13,7 +13,7 @@ namespace FiguraServer.Server.WebSockets.Messages.Users
         public Guid uuid;
         public byte[] payload;
 
-        public UserAvatarProvideResponse(Guid uuid, byte[] payload) : base(MessageIDs.USER_GET_AVATAR_UUID_PROVIDE_RESPONSE_ID)
+        public UserAvatarProvideResponse(Guid uuid, byte[] payload)
         {
             this.uuid = uuid;
             this.payload = payload;
@@ -27,5 +27,7 @@ namespace FiguraServer.Server.WebSockets.Messages.Users
             writer.Write(payload.Length);
             writer.Write(payload);
         }
+
+        public override string ProtocolName => "figura_v1:user_avatar_provide";
     }
 }
