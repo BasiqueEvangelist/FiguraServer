@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using FiguraServer.Data;
+using FiguraServer.Server.WebSockets.Messages.Utility;
 
 namespace FiguraServer.Server.WebSockets.Messages.Avatars
 {
@@ -12,6 +13,12 @@ namespace FiguraServer.Server.WebSockets.Messages.Avatars
 
         public async override Task<string> HandleMessage(WebSocketConnection connection, BinaryReader reader)
         {
+            if (!connection.avatarRequestRateLimiter.TryTakePoints(1))
+            {
+                connection.SendMessage(new ErrorMessageSender(ErrorMessageSender.AVATAR_REQUEST_RATE_LIMIT));
+                return string.Empty;
+            }
+
             await base.HandleMessage(connection, reader);
 
             //Get GUID

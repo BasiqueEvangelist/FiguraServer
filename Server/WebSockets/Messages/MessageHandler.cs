@@ -25,5 +25,15 @@ namespace FiguraServer.Server.WebSockets.Messages
             return Guid.Parse(Encoding.UTF8.GetString(data));
         }
 
+        public static String ReadString(BinaryReader reader)
+        {
+            int length = reader.ReadInt32();
+
+            byte[] data = new byte[length];
+            reader.Read(data, 0, length);
+
+            return Encoding.UTF8.GetString(data);
+        }
+
     }
 }

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using FiguraServer.Server.WebSockets.Messages.Utility;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -11,6 +12,12 @@ namespace FiguraServer.Server.WebSockets.Messages.Avatars
 
         public async override Task<string> HandleMessage(WebSocketConnection connection, BinaryReader reader)
         {
+            if (!connection.avatarUploadRateLimiter.TryTakePoints(1))
+            {
+                connection.SendMessage(new ErrorMessageSender(ErrorMessageSender.AVATAR_UPLOAD_RATE_LIMIT));
+                return string.Empty;
+            }
+
             int avatarLength = reader.ReadInt32();
 
             (sbyte retCode, Guid avatarID) = await connection.connectionUser.TryAddAvatar(reader.ReadBytes(avatarLength));

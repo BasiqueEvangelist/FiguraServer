@@ -1,4 +1,5 @@
-﻿using System;
+﻿using FiguraServer.Server.WebSockets.Messages.Utility;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -12,6 +13,12 @@ namespace FiguraServer.Server.WebSockets.Messages.Users
 
         public async override Task<string> HandleMessage(WebSocketConnection connection, BinaryReader reader)
         {
+            if (!connection.avatarRequestRateLimiter.TryTakePoints(1))
+            {
+                connection.SendMessage(new ErrorMessageSender(ErrorMessageSender.AVATAR_REQUEST_RATE_LIMIT));
+                return string.Empty;
+            }
+
             await base.HandleMessage(connection, reader);
 
             Guid userID = ReadMinecraftUUIDFromBinaryReader(reader);

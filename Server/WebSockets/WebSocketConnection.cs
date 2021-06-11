@@ -1,26 +1,26 @@
 ﻿using FiguraServer.Data;
 using FiguraServer.Server.Auth;
 using FiguraServer.Server.WebSockets.Messages;
-using FiguraServer.Server.WebSockets.Messages.Avatars;
 using FiguraServer.Server.WebSockets.Messages.Users;
-using Microsoft.AspNetCore.SignalR;
-using Newtonsoft.Json.Linq;
+using FiguraServer.Server.WebSockets.Messages.PubSub;
+using FiguraServer.Server.WebSockets.Messages.Avatars;
+
 using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.IdentityModel.Tokens.Jwt;
 using System.IO;
 using System.Linq;
-using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-
+using System.Collections.Generic;
+using System.Collections.Concurrent;
+using System.Net.WebSockets;
+using FiguraServer.Server.WebSockets.Messages.Pings;
+using FiguraServer.Server.WebSockets.Messages.Utility;
 
 namespace FiguraServer.Server.WebSockets
 {
 
-    public class WebSocketConnection
+    public class WebSocketConnection : IDisposable
     {
         private readonly static List<MessageHandler> messageHandlers = new List<MessageHandler>()
         {
@@ -30,24 +30,70 @@ namespace FiguraServer.Server.WebSockets
             new UserDeleteCurrentAvatarRequestHandler(),
             new UserGetCurrentAvatarRequestHandler(),
             new UserGetCurrentAvatarHashRequestHandler(),
+            new SubscribeToUsersRequestHandler(),
+            new UnsubscribeFromUsersRequestHandler(),
+            new ChannelAvatarUpdateRequestHandler(),
+            new PingMessageHandler(),
         };
 
         private static ConcurrentQueue<byte[]> messageHeaderPool = new ConcurrentQueue<byte[]>();
         private static ConcurrentQueue<Task<byte[]>> messageTaskList = new ConcurrentQueue<Task<byte[]>>();
 
-        public WebSocket socket;
-        public Guid playerID;
-        public MessageRegistry Registry = new();
+        private static ConcurrentDictionary<Guid, WebSocketConnection> openedConnections = new ConcurrentDictionary<Guid, WebSocketConnection>();
 
+        public WebSocket socket;
+        public Guid playerID = Guid.Empty;
+        public MessageRegistry Registry = new();
+        private List<Guid> subscribedIDs = new List<Guid>();
+
+        public bool isAuthenticated = false;
+
+        //Byte limiter, limits the maximum byte throughput of the entire connection.
+        //200kb capacity
+        //20kb/s recovery speed.
+        public RateLimiter byteRateLimiter = new RateLimiter(1024 * 200, 1024 * 20);
+
+        //Message rate limiter, limits the maximum count of messages through the entire connection.
+        //2048 capacity
+        //256/s recovery speed
+        public RateLimiter messageRateLimiter = new RateLimiter(2048, 256);
+
+        //Avatar upload rate limiter
+        //4 capacity
+        //1/s recovery speed
+        public RateLimiter avatarUploadRateLimiter = new RateLimiter(4);
+
+        //Avatar request rate limiter
+        //2048 capacity
+        //1/s recovery speed
+        public RateLimiter avatarRequestRateLimiter = new RateLimiter(2048);
+
+        //Ping byte rate limiter
+        //2kb capacity
+        //1kb/s recovery speed
+        public RateLimiter pingByteRateLimiter = new RateLimiter(2048, 1024);
+
+        //Ping rate limiter, limits the maximum amount of ping messages that can be sent through the connection.
+        //21 capacity
+        //21/s recovery speed
+        public RateLimiter pingRateLimiter = new RateLimiter(21, 21);
 
         //The User object for this connection. We keep this around because it might be modified, a lot.
         public User connectionUser = null;
 
         public WebSocketConnection(WebSocket socket)
         {
-            lastSendTask = new Task(() => { });
-            lastSendTask.Start();
             this.socket = socket;
+        }
+
+        public void Dispose()
+        {
+            openedConnections.TryRemove(playerID, out _);
+            PubSubManager.Unsubscribe(playerID, playerID);
+
+            //Unsubscribe!
+            foreach(Guid id in subscribedIDs)
+                PubSubManager.Unsubscribe(id, playerID);
         }
 
         public async Task Run()
@@ -117,7 +163,18 @@ namespace FiguraServer.Server.WebSockets
                     }
 
                     Logger.LogMessage("End Of Message. Length:" + ms.Length);
-                    return ms.ToArray();
+
+                    //Check byte rate limit.
+                    if (byteRateLimiter.TryTakePoints(ms.Length))
+                    {
+                        return ms.ToArray();
+                    } 
+                    else
+                    {
+                        Logger.LogMessage("Byte Ratelimit hit.");
+                        SendMessage(new ErrorMessageSender(ErrorMessageSender.BYTE_RATE_LIMIT));
+                        return new byte[0];
+                    }
                 }
             }
             catch (Exception e)
@@ -163,6 +220,9 @@ namespace FiguraServer.Server.WebSockets
                     Registry.ReadRegistryMessage(br);
 
                     await SendServerRegistry();
+
+                    openedConnections.AddOrUpdate(playerID, this, (k, v) => this);
+                    PubSubManager.Subscribe(playerID, playerID, this);
                 }
                 else
                 {
@@ -237,6 +297,13 @@ namespace FiguraServer.Server.WebSockets
                 }
 
                 messageData = await GetNextMessage();
+
+                //Check message rate limit.
+                if (!messageRateLimiter.TryTakePoints(1))
+                {
+                    SendMessage(new ErrorMessageSender(ErrorMessageSender.MESSAGE_RATE_LIMIT));
+                    continue;
+                }
             }
         }
 
@@ -245,15 +312,20 @@ namespace FiguraServer.Server.WebSockets
             return Encoding.UTF8.GetString(buffer, 0, buffer.Length);
         }
 
-        private Task lastSendTask;
+        private Task lastSendTask = Task.CompletedTask;
+        private object taskLock = new object();
 
         public void SendMessage(MessageSender sender)
         {
-            lastSendTask = lastSendTask.ContinueWith(async (t) => { await SendMessageReal(sender); });
+            lock(taskLock)
+                lastSendTask = lastSendTask.ContinueWith(async (t) => { await SendMessageReal(sender); });
         }
 
         private async Task SendMessageReal(MessageSender sender)
         {
+            if (socket.CloseStatus != WebSocketCloseStatus.Empty && socket.CloseStatus != null)
+                return;
+
             try
             {
                 await sender.SendData(this);

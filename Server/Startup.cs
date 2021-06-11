@@ -83,7 +83,10 @@ namespace FiguraServer
                         Logger.LogMessage("Accepting websocket. Total connections : " + currentConnections);
                         using (WebSocket webSocket = await context.WebSockets.AcceptWebSocketAsync())
                         {
-                            await new WebSocketConnection(webSocket).Run();
+                            using (var wsc = new WebSocketConnection(webSocket))
+                            {
+                                await wsc.Run();
+                            }
                         }
                     }
                     catch (Exception e)
