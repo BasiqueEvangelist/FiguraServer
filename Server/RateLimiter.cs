@@ -28,10 +28,7 @@ namespace FiguraServer.Server
         {
             lock (limiterLock)
             {
-                DateTime n = DateTime.Now;
-                var diff = n - lastTime;
-                lastTime = n;
-                points = Math.Clamp(points + ((float)diff.TotalSeconds * pointsPerSecond), 0, maxPoints);
+                FillFromTime();
 
                 if (points >= amount)
                 {
@@ -44,6 +41,26 @@ namespace FiguraServer.Server
                     return false;
                 }
             }
+        }
+
+
+
+        public bool IsFull()
+        {
+            lock (limiterLock)
+            {
+                FillFromTime();
+
+                return (maxPoints - points) < 0.0001f;
+            }
+        }
+
+        private void FillFromTime()
+        {
+            DateTime n = DateTime.Now;
+            var diff = n - lastTime;
+            lastTime = n;
+            points = Math.Clamp(points + ((float)diff.TotalSeconds * pointsPerSecond), 0, maxPoints);
         }
     }
 }

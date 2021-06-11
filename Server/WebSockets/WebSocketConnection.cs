@@ -17,6 +17,8 @@ using System.Net.WebSockets;
 using FiguraServer.Server.WebSockets.Messages.Pings;
 using FiguraServer.Server.WebSockets.Messages.Utility;
 
+using Timer = System.Timers.Timer;
+
 namespace FiguraServer.Server.WebSockets
 {
 
@@ -40,6 +42,7 @@ namespace FiguraServer.Server.WebSockets
         private static ConcurrentQueue<Task<byte[]>> messageTaskList = new ConcurrentQueue<Task<byte[]>>();
 
         private static ConcurrentDictionary<Guid, WebSocketConnection> openedConnections = new ConcurrentDictionary<Guid, WebSocketConnection>();
+        private static ConcurrentDictionary<Guid, Tuple<Timer, RateLimiterGroup>> rateLimitGroups = new ConcurrentDictionary<Guid, Tuple<Timer, RateLimiterGroup>>();
 
         public WebSocket socket;
         public Guid playerID = Guid.Empty;
@@ -48,35 +51,37 @@ namespace FiguraServer.Server.WebSockets
 
         public bool isAuthenticated = false;
 
+        public RateLimiterGroup rateGroup = new RateLimiterGroup();
+
         //Byte limiter, limits the maximum byte throughput of the entire connection.
         //200kb capacity
         //20kb/s recovery speed.
-        public RateLimiter byteRateLimiter = new RateLimiter(1024 * 200, 1024 * 20);
+        public RateLimiter byteRateLimiter => rateGroup.byteRateLimiter;
 
         //Message rate limiter, limits the maximum count of messages through the entire connection.
         //2048 capacity
         //256/s recovery speed
-        public RateLimiter messageRateLimiter = new RateLimiter(2048, 256);
+        public RateLimiter messageRateLimiter => rateGroup.messageRateLimiter;
 
         //Avatar upload rate limiter
         //4 capacity
         //1/s recovery speed
-        public RateLimiter avatarUploadRateLimiter = new RateLimiter(4);
+        public RateLimiter avatarUploadRateLimiter => rateGroup.avatarUploadRateLimiter;
 
         //Avatar request rate limiter
         //2048 capacity
         //1/s recovery speed
-        public RateLimiter avatarRequestRateLimiter = new RateLimiter(2048);
+        public RateLimiter avatarRequestRateLimiter => rateGroup.avatarRequestRateLimiter;
 
         //Ping byte rate limiter
         //2kb capacity
         //1kb/s recovery speed
-        public RateLimiter pingByteRateLimiter = new RateLimiter(2048, 1024);
+        public RateLimiter pingByteRateLimiter => rateGroup.pingByteRateLimiter;
 
         //Ping rate limiter, limits the maximum amount of ping messages that can be sent through the connection.
         //21 capacity
         //21/s recovery speed
-        public RateLimiter pingRateLimiter = new RateLimiter(21, 21);
+        public RateLimiter pingRateLimiter => rateGroup.pingRateLimiter;
 
         //The User object for this connection. We keep this around because it might be modified, a lot.
         public User connectionUser = null;
@@ -94,6 +99,12 @@ namespace FiguraServer.Server.WebSockets
             //Unsubscribe!
             foreach(Guid id in subscribedIDs)
                 PubSubManager.Unsubscribe(id, playerID);
+
+            //Start rate limit cleanup timer.
+            if(rateLimitGroups.TryGetValue(playerID, out var v))
+            {
+                v.Item1.Start();
+            }
         }
 
         public async Task Run()
@@ -220,6 +231,26 @@ namespace FiguraServer.Server.WebSockets
                     Registry.ReadRegistryMessage(br);
 
                     await SendServerRegistry();
+
+                    //Get a group, or create one if needed.
+                    var timerGroupPair = rateLimitGroups.GetOrAdd(playerID, (guid) =>
+                    {
+                        RateLimiterGroup ng = new RateLimiterGroup();
+                        Timer t = new Timer(60000);
+
+                        t.Elapsed += (_, _) => {
+                            rateLimitGroups.TryRemove(guid, out _);
+                            t.Stop();
+                        };
+
+                        return new Tuple<Timer, RateLimiterGroup>(t, ng);
+                    });
+
+                    //Stop timer that we've grabbed
+                    timerGroupPair.Item1.Stop();
+
+                    //Set our rate group to the given group
+                    rateGroup = timerGroupPair.Item2;
 
                     openedConnections.AddOrUpdate(playerID, this, (k, v) => this);
                     PubSubManager.Subscribe(playerID, playerID, this);
